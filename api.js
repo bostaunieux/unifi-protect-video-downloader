@@ -25,10 +25,15 @@ module.exports = class Api {
 
         const camera = await this.getCameraFromMac({token, cameraMac});
 
-        console.log('[api]');
-        console.dir(camera);
+        
+        while (start < end) {
+            // break up videos longer than 10 minutes
+            const calculatedEnd = Math.min(end, start + (10 * 60 * 1000));
+            
+            this.downloadVideo({token, camera, start, end: calculatedEnd});    
 
-        this.downloadVideo({token, camera, start, end});
+            start += 1 + (10 * 60 * 1000);
+        }
     }
 
     async getToken() {
@@ -57,9 +62,6 @@ module.exports = class Api {
 
         const response = await request.get(`${this.host}/api/cameras`, requestConfig);
 
-        console.debug('[api] camera response:');
-        console.dir(response.data);
-
         const camera = response.data.find(cam => cam.mac === cameraMac);
 
         if (!camera) {
@@ -87,7 +89,7 @@ module.exports = class Api {
             await fs.promises.mkdir(filePath, {recursive: true});
         }
 
-        const writer = fs.createWriteStream(`${filePath}/${start}.mp4`)
+        const writer = fs.createWriteStream(`${filePath}/${start}.mp4`);
 
         const requestConfig = {headers, responseType: 'stream'};
 
@@ -104,6 +106,6 @@ module.exports = class Api {
         return new Promise((resolve, reject) => {
             writer.on('finish', resolve)
             writer.on('error', reject)
-          });
+        });
     }
 }
