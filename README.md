@@ -4,7 +4,7 @@ This will listen for motion events triggered from the unifi protect mqtt motion 
 
 ## Docker setup
 
-1. Mount a `/downloads` directory where videos will be downloaded. They will have the format`/{cameraName}/YYYY/MM/DD/${timestamp}.mp4
+1. Mount a `/downloads` directory where videos will be downloaded. They will have the format`/{cameraName}/YYYY/MM/DD/${timestamp}.mp4`
 2. Define the following ENV vars
    * `MQTT_HOST` - mqtt broker host, e.g. "mqtt://192.168.1.1",
    * `MQTT_USER` - username for connecting to mqtt broker
