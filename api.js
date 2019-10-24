@@ -28,21 +28,14 @@ module.exports = class Api {
         console.log('[api]');
         console.dir(camera);
 
-        console.log(`[api] download path: ${this.downloadPath}`);
         this.downloadVideo({token, camera, start, end});
     }
 
     async getToken() {
-        // TODO: Header shouldn't be necessary
-        const headers = {
-            'Content-Type': 'application/json'
-        };
-        const requestConfig = {headers};
-    
         const response = await request.post(`${this.host}/api/auth`, {
             'username': this.username,
             'password': this.password
-        }, requestConfig);
+        });
     
         if (!response || !response.headers || !response.headers.authorization) {
             throw new Error('Invalid token api response; received message', response);
@@ -85,10 +78,12 @@ module.exports = class Api {
         const date = new Date(start);
 
         const filePath = path.resolve(this.downloadPath, camera.name, '' + date.getFullYear(), '' + (date.getMonth() + 1), '' + date.getDate());
-        console.info(`[api] path: ${filePath}`);
+        console.info(`[api] writing to file path: ${filePath}`);
         
-        const pathExists = await fs.promises.exists(filePath);
-        if (!pathExists){
+        try {
+            await fs.promises.access(filePath);
+        } catch (e) {
+            // directory doesn't exist, create it
             await fs.promises.mkdir(filePath, {recursive: true});
         }
 
@@ -96,8 +91,14 @@ module.exports = class Api {
 
         const requestConfig = {headers, responseType: 'stream'};
 
-        const response = await request.get(`${this.host}/api/video/export?start=${start}&end=${end}&camera=${camera.id}`, requestConfig);
-
+        let response;
+        try {
+            response = await request.get(`${this.host}/api/video/export?start=${start}&end=${end}&camera=${camera.id}`, requestConfig);    
+        } catch (e) {
+            console.error('[api] unable to download video', e);
+            return;
+        }
+    
         response.data.pipe(writer);
 
         return new Promise((resolve, reject) => {

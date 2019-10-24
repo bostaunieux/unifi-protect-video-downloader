@@ -1,6 +1,6 @@
 {
   "name": "@bostaunieux/unifi-protect-video-downloader",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Node service for processing unifi protect mqtt motion events and triggering a download",
   "author": "bostaunieux",
   "license": "ISC",
