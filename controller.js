@@ -3,7 +3,8 @@ require("log-timestamp");
 const mqtt = require('mqtt');
 const Api = require('./api');
 
-const cameraStates = {};
+const cameraStartTimeByMac = {};
+const cameraDownloadQueue = {};
 
 const client = mqtt.connect(process.env.MQTT_HOST, {
   username: process.env.MQTT_USER, 
@@ -38,34 +39,49 @@ client.on('connect', () => {
 client.on('message', (topic, message) => {
 
   if (topic.startsWith('unifi/camera/motion/')) {
-    const {status, camera_id: cameraId, timestamp} = JSON.parse(message.toString());
-    return processMotionEvent({status, cameraId, timestamp})
+    const {status, camera_id: cameraMac, timestamp} = JSON.parse(message.toString());
+    return processMotionEvent({status, cameraMac, timestamp})
   }
 
   console.warn('[controller] No handler for topic: %s', topic);
 });
 
-const processMotionEvent = async ({status, cameraId, timestamp}) => {
-  console.info(`[controller] Processing motion event with status: ${status}, cameraId: ${cameraId}, timestamp: ${timestamp}`);
+const processMotionEvent = async ({status, cameraMac, timestamp}) => {
+  console.info(`[controller] Processing motion event with status: ${status}, cameraMac: ${cameraMac}, timestamp: ${timestamp}`);
 
   if (status === 'ON') {
     console.info('[controller] Processing motion start event');
-    cameraStates[cameraId] = timestamp;
+
+    if (cameraDownloadQueue[cameraMac]) {
+      console.info('[controller] Found previous motion event; reseting timer');
+      clearTimeout(cameraDownloadQueue[cameraMac]);
+    } else {
+      cameraStartTimeByMac[cameraMac] = timestamp;
+    }
+
   } else if (status === 'OFF') {
     console.info('[controller] Processing motion end event');
+
+    const startTimestamp = cameraStartTimeByMac[cameraMac];
     
-    const previousTimestamp = cameraStates[cameraId];
-    delete cameraStates[cameraId];
-    
-    if (!previousTimestamp) {
+    if (!startTimestamp) {
       return;
     }
 
-    console.info('[controller] Found motion start event, processing video download');
+    if (cameraDownloadQueue[cameraMac]) {
+      console.info('[controller] Found previous motion event; reseting timer');
+      clearTimeout(cameraDownloadQueue[cameraMac]);
+    }
+    
+    // wait to see if new movement is started
+    cameraDownloadQueue[cameraMac] = setTimeout(() => {
+      console.info('[controller] Motion end event finished; processing video download');
+      delete cameraStartTimeByMac[cameraMac];
+      delete cameraDownloadQueue[cameraMac];
 
-    // ensure enough time has elapsed to read past the end of motion
-    setTimeout(() => {
-      api.processDownload({cameraMac: cameraId, start: previousTimestamp - 5000, end: timestamp + 5000})
+      api.processDownload({cameraMac, start: startTimestamp - 5000, end: timestamp + 5000});
+
     }, 5000);
+    
   }
 };
