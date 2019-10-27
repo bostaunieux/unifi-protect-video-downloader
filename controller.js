@@ -17,6 +17,9 @@ const client = mqtt.connect(process.env.MQTT_HOST, {
   }
 });
 
+const cameraNames = (process.env.CAMERAS && 
+  process.env.CAMERAS.split(',').map(camera => camera.trim().toLowerCase().replace(/\s/g, '_'))) || [];
+
 const api = new Api({
   host: process.env.UNIFI_HOST,
   username: process.env.UNIFI_USER,
@@ -33,7 +36,13 @@ client.on('connect', () => {
 
   client.publish('unifi/protect-downloader/availability', 'online', {qos: 1, retain: true});
   
-  client.subscribe('unifi/camera/motion/#');
+  if (cameraNames.length > 0) {
+    console.info(`Subcribing to motion events for cameras: ${cameraNames.join(', ')}`);
+    cameraNames.map(cameraName => client.subscribe(`unifi/camera/motion/${cameraName}`));
+  } else {
+    console.info('Subcribing to motion events for all cameras');
+    client.subscribe('unifi/camera/motion/#');
+  }
 });
 
 client.on('message', (topic, message) => {

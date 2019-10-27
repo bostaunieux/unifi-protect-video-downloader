@@ -12,6 +12,7 @@ This will listen for motion events triggered from the unifi protect mqtt motion 
    * `UNIFI_HOST` - unifi protect host, e.g. "https://192.168.1.1:7443"
    * `UNIFI_USER` - username for unifi protect server (see directions below)
    * `UNIFI_PASS` - password for unifi protect server (see directions below)
+   * `CAMERAS` - Optional, filter to only record camera with these names, e.g. 'Front Door, Driveway'
 
 ## User account creation
 
