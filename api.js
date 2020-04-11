@@ -78,8 +78,13 @@ module.exports = class Api {
             'Content-Type': 'application/json'
         };
         const date = new Date(start);
+        const year = '' + date.getFullYear();
+        const month = ('' + (date.getMonth() + 1)).padStart(2, '0');
+        const day = ('' + date.getDate()).padStart(2, '0');
+        const hour = ('' + date.getHours()).padStart(2, '0');
+        const minute = ('' + date.getMinutes()).padStart(2, '0');
 
-        const filePath = path.resolve(this.downloadPath, camera.name, '' + date.getFullYear(), '' + (date.getMonth() + 1), '' + date.getDate());
+        const filePath = path.resolve(this.downloadPath, camera.name, year, month, day);
         console.info(`[api] writing to file path: ${filePath}`);
         
         try {
@@ -89,7 +94,7 @@ module.exports = class Api {
             await fs.promises.mkdir(filePath, {recursive: true});
         }
 
-        const writer = fs.createWriteStream(`${filePath}/${start}.mp4`);
+        const writer = fs.createWriteStream(`${filePath}/${year}-${month}-${day}_${hour}.${minute}_${start}.mp4`);
 
         const requestConfig = {headers, responseType: 'stream'};
 
