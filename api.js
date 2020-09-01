@@ -9,6 +9,8 @@ const request = axios.create({
     })
   });
 
+const padDatePart = (num) => ('' + num).padStart(2, '0');
+
 module.exports = class Api {
 
     constructor({host, username, password, downloadPath}) {
@@ -79,10 +81,10 @@ module.exports = class Api {
         };
         const date = new Date(start);
         const year = '' + date.getFullYear();
-        const month = ('' + (date.getMonth() + 1)).padStart(2, '0');
-        const day = ('' + date.getDate()).padStart(2, '0');
-        const hour = ('' + date.getHours()).padStart(2, '0');
-        const minute = ('' + date.getMinutes()).padStart(2, '0');
+        const month = padDatePart(date.getMonth() + 1);
+        const day = padDatePart(date.getDate());
+        const hour = padDatePart(date.getHours());
+        const minute = padDatePart(date.getMinutes());
 
         const filePath = path.resolve(this.downloadPath, camera.name, year, month, day);
         console.info(`[api] writing to file path: ${filePath}`);
