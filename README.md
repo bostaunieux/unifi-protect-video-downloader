@@ -1,5 +1,7 @@
 # unifi-protect-video-downloader
 
+> This project relies on an old firmware (pre Unifi OS) and does not currently work. Changes coming to upgrade this to use new features enabled in Unifi OS.
+
 This will listen for motion events triggered from the unifi protect mqtt motion event service and trigger a download of the video. Note this relies on a separate process for publishing start and end events to the mqtt broker for each camera.
 
 ## Docker setup
