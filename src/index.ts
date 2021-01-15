@@ -1,10 +1,9 @@
 import { CameraTimestamps, DownloadQueue, MotionEvent } from "./types";
 
-require("log-timestamp");
+import "log-timestamp";
 
 import mqtt, { Client } from "mqtt";
-// const mqtt = require("mqtt");
-const Api = require("./api");
+import Api from "./api";
 
 const cameraStartTimeByMac: CameraTimestamps = {};
 const cameraDownloadQueue: DownloadQueue = {};
@@ -36,6 +35,11 @@ const cameraNames =
       camera.trim().toLowerCase().replace(/\s/g, "_")
     )) ||
   [];
+
+if (!UNIFI_HOST || !UNIFI_USER || !UNIFI_PASS) {
+  console.error('Unable to initialize; missing required configuration');
+  process.exit(1);
+}
 
 const api = new Api({
   host: UNIFI_HOST,

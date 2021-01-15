@@ -176,18 +176,15 @@ export default class Api {
 
     let response;
     try {
-      response = await this.request.get(
-        `${this.host}/api/video/export`,
-        {
-            headers: this.headers,
-            responseType: "stream",
-            params: {
-              start,
-              end,
-              camera: camera.id,
-            },
-          }
-      );
+      response = await this.request.get(`${this.host}/api/video/export`, {
+        headers: this.headers,
+        responseType: "stream",
+        params: {
+          start,
+          end,
+          camera: camera.id,
+        },
+      });
     } catch (e) {
       console.error("unable to download video", e);
       return;
