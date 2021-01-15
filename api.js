@@ -23,8 +23,6 @@ module.exports = class Api {
     async processDownload({cameraMac, start, end}) {
         const token = await this.getToken();
 
-        console.log('[api] ' + token);
-
         const camera = await this.getCameraFromMac({token, cameraMac});
 
         

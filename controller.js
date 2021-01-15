@@ -74,6 +74,7 @@ const processMotionEvent = async ({status, cameraMac, timestamp}) => {
     const startTimestamp = cameraStartTimeByMac[cameraMac];
     
     if (!startTimestamp) {
+      console.info('No start timestamp found, aborting (this may happen when restarting the service after a motion end event was previously published)');
       return;
     }
 
