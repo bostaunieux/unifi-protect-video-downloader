@@ -37,7 +37,7 @@ const cameraNames =
   [];
 
 if (!UNIFI_HOST || !UNIFI_USER || !UNIFI_PASS) {
-  console.error('Unable to initialize; missing required configuration');
+  console.error("Unable to initialize; missing required configuration");
   process.exit(1);
 }
 

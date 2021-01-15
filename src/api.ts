@@ -1,10 +1,7 @@
-import { DownloadQueue } from "./types";
-
-// const axios = require("axios");
-import axios, { AxiosResponse } from "axios";
-const https = require("https");
-const path = require("path");
-const fs = require("fs");
+import axios from "axios";
+import https from "https";
+import path from "path";
+import fs from "fs";
 
 const padDatePart = (num: number) => String(num).padStart(2, "0");
 
