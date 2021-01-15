@@ -174,21 +174,19 @@ export default class Api {
       await fs.promises.mkdir(filePath, { recursive: true });
     }
 
-    const requestConfig = {
-      headers: this.headers,
-      responseType: "stream",
-      params: {
-        start,
-        end,
-        camera: camera.id,
-      },
-    };
-
     let response;
     try {
       response = await this.request.get(
         `${this.host}/api/video/export`,
-        requestConfig
+        {
+            headers: this.headers,
+            responseType: "stream",
+            params: {
+              start,
+              end,
+              camera: camera.id,
+            },
+          }
       );
     } catch (e) {
       console.error("unable to download video", e);
