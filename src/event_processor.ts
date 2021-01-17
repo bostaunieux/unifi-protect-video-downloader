@@ -1,13 +1,15 @@
 import zlib from "zlib";
-import { MotionEvent } from "./types";
+import { CameraId, EventId, MotionEvent, Timestamp } from "./types";
 
 interface EventAction {
   action: string;
-  id: string;
+  id: EventId;
   modelKey: string;
   newUpdateId: string;
 }
 
+// properties on an 'update' event payload vary based on the prior event 
+// they're referencing; therefore are properties are optional
 interface UpdateEventPayload {
   isMotionDetected?: boolean;
   lastMotion?: number;
@@ -18,42 +20,57 @@ interface UpdateEventPayload {
 }
 
 interface AddEventPayload {
-  camera: string;
-  id: string;
+  camera: CameraId;
+  id: EventId;
   modelKey: string;
-  partition: null;
   score: number;
   smartDetectEvents: string[];
   smartDetectTypes: string[];
-  start: number;
+  start: Timestamp;
   type: string;
 }
 
 interface DecodedEvent {
   action: EventAction;
+  // will be convereted to AddEventPayload or UpdateEventPayload; note those types
+  // aren't exhaustive, hence the generic type here
   payload: Record<string, string>;
 }
 
 interface QueuedSmartEvent {
-  camera: string;
-  start: number;
+  camera: CameraId;
+  start: Timestamp;
 }
 
+// number of bytes in a packet within the message
 const PACKET_BYTE_SIZE = 8;
+// offset within the message buffer where the payload size is stored
 const PACKET_PAYLOAD_SIZE_OFFSET = 4;
 
 
 export default class EventProcessor {
   // event id -> motion start details
-  smartMotionEvents: Map<string, QueuedSmartEvent>;
+  smartMotionEvents: Map<EventId, QueuedSmartEvent>;
   // camera id -> motion start timestamp
-  motionEvents: Map<string, number>;
+  motionEvents: Map<CameraId, Timestamp>;
 
   constructor() {
     this.smartMotionEvents = new Map();
     this.motionEvents = new Map();
   }
 
+  /**
+   * Parse the incoming message from the NVR into a consumable format. This will ignore
+   * the majority of messages it cares about and focus solely on the subset having to do
+   * with motion events from cameras. When either a start motion event or start smart 
+   * motion event is received, it will be queued until the corresponding end event is
+   * received. At this time, the full motion event will be returned
+   * 
+   * TODO: return a StartMotionEvent so clients can be notified immediately when motion
+   * starts. Also differentiate smart vs dumb motion events.
+   * 
+   * @param message {Buffer} Message buffer for NVR activity event
+   */
   public parseMessage(message: Buffer): MotionEvent | null {
     const { action, payload } = this.decodeBuffer(message) ?? {};
 
@@ -91,7 +108,7 @@ export default class EventProcessor {
       }
     }
 
-    //check for smart motion end event
+    // check for smart motion end event
     if (action.modelKey === "event" && action.action === "update") {
       const { score, end } = (payload as unknown) as UpdateEventPayload;
       const { camera, start } = this.smartMotionEvents.get(action.id) ?? {};
@@ -110,7 +127,9 @@ export default class EventProcessor {
         // process start motion event
         console.info("Processing start basic motion event for camera: %s", action.id);
         this.motionEvents.set(action.id, lastMotion);
+
       } else if (lastMotion && isMotionDetected === false) {
+        // process end motion event
         const firstMotion = this.motionEvents.get(action.id);
         if (firstMotion) {
           this.motionEvents.delete(action.id);

@@ -12,18 +12,15 @@ interface ApiConfig {
   downloadPath: string;
 }
 
-interface CameraBasics {
-  // unique id
-  id: string;
-  // display friently camera name, e.g. Front Door
-  name: string;
-}
-
 interface RequestHeaders {
   [key: string]: string;
 }
 
-interface CameraDetails extends CameraBasics {
+interface CameraDetails {
+  // unique id
+  id: string;
+  // display friently camera name, e.g. Front Door
+  name: string;
   // camera mac address
   mac: string;
   // camera ip address
@@ -77,7 +74,6 @@ export default class Api {
   private isSubscribed: boolean;
   private subscribers: Set<(event: Buffer) => void>;
   private bootstrap: BootstrapResponse | null;
-  private lastUpdateId: string | null;
 
   constructor({ host, username, password, downloadPath }: ApiConfig) {
     this.host = host;
@@ -94,7 +90,6 @@ export default class Api {
     this.subscribers = new Set();
     this.isSubscribed = false;
     this.bootstrap = null;
-    this.lastUpdateId = null;
   }
 
   public async initialize(): Promise<void> {
@@ -123,7 +118,7 @@ export default class Api {
     if (!(await this.authenticate())) {
       throw new Error("Unable to subscribe to events; failed fetching auth token");
     }
-    const webSocketUrl = `wss://${this.host}/proxy/protect/ws/updates?lastUpdateId=${this.lastUpdateId}`;
+    const webSocketUrl = `wss://${this.host}/proxy/protect/ws/updates?lastUpdateId=${this.bootstrap?.lastUpdateId}`;
 
     console.debug("Connecting to ws server url: %s", webSocketUrl);
 
@@ -192,29 +187,6 @@ export default class Api {
     this.isSubscribed = true;
   }
 
-  //   public async processDownload(
-  //     cameraId: string,
-  //     start: number,
-  //     end: number
-  //   ): Promise<void> {
-  //     if (!(await this.authenticate())) {
-  //       throw new Error(
-  //         "Unable to process motion download; failed fetching auth token"
-  //       );
-  //     }
-
-  //     const camera = await this.getCameraDetails(cameraId);
-
-  //     while (start < end) {
-  //       // break up videos longer than 10 minutes
-  //       const calculatedEnd = Math.min(end, start + 10 * 60 * 1000);
-
-  //       this.downloadVideo({ camera, start, end: calculatedEnd });
-
-  //       start += 1 + 10 * 60 * 1000;
-  //     }
-  //   }
-
   private async authenticate(): Promise<boolean> {
     const now = Date.now();
 
@@ -280,50 +252,16 @@ export default class Api {
       throw new Error("Failed to fetch bootstrap");
     }
 
-    this.lastUpdateId = response.data.lastUpdateId;
     this.bootstrap = response.data;
 
     return response.data;
   }
 
-  /**
-   *
-   */
-  private async getCameras(): Promise<Array<CameraDetails>> {
-    if (!(await this.authenticate())) {
-      throw new Error("Authenfication failed when fetching cameras");
-    }
-
-    if (this.bootstrap?.cameras) {
-      return this.bootstrap?.cameras;
-    }
-
-    const response = await this.request.get<Array<CameraDetails>>(`https://${this.host}/proxy/protect/api/cameras`, {
-      headers: this.headers,
-    });
-
-    if (response.status !== 200) {
-      throw new Error("Failed fetching camera details: " + response.statusText);
-    }
-
-    return response.data;
-  }
-
-  /**
-   *
-   */
-  private async getCameraDetails(cameraId: string): Promise<CameraBasics> {
-    const camera = this.bootstrap?.cameras.find((camera) => camera.mac === cameraId);
-
-    if (!camera) {
-      throw new Error("Unable to find camera with mac: " + cameraId);
-    }
-
-    return { id: camera.id, name: camera.name };
-  }
-
   public async downloadVideo({ camera: id, start, end }: MotionEvent, options?: DownloadOptions): Promise<void> {
     const { padding } = options ?? { padding: 5000 };
+    // add padding to timestamps
+    start = start - 5000;
+    end = end + 5000;
 
     const camera = this.bootstrap?.cameras.find((cam) => (cam.id = id));
     if (!camera) {
@@ -331,7 +269,7 @@ export default class Api {
       return;
     }
     const { filePath, fileName } = this.generateFileAttributes(camera.name, start);
-    console.info(`[api] writing to file path: ${filePath}`);
+    console.info('Downloading video with length: %s seconds, to file path: %s', Math.round((end - start) / 1000), filePath);
 
     try {
       await fs.promises.access(filePath);
@@ -346,13 +284,13 @@ export default class Api {
         headers: this.headers,
         responseType: "stream",
         params: {
-          start: start - padding,
-          end: end + padding,
+          start,
+          end,
           camera: camera.id,
         },
       });
     } catch (e) {
-      console.error("unable to download video", e);
+      console.error("Unable to download video", e);
       return;
     }
 
