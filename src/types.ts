@@ -1,8 +1,10 @@
 export interface MotionEvent {
-  status: "ON" | "OFF";
-  camera_id: string;
-  camera_name: string;
-  timestamp: string;
+  // camera id
+  camera: string;
+  // event start timestamp
+  start: number;
+  // event end timestamp
+  end: number;
 }
 
 export interface CameraTimestamps {
