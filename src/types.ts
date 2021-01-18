@@ -13,6 +13,10 @@ export interface MotionEndEvent extends MotionStartEvent {
   end: Timestamp;
 }
 
+interface FeatureFlags {
+  hasSmartDetect: boolean;
+}
+
 export interface CameraDetails {
   // unique id
   id: CameraId;
@@ -24,6 +28,8 @@ export interface CameraDetails {
   host: string;
   // camera type, e.g. UVC G3 Instant
   type: string;
+  // camera feature flags
+  featureFlags: FeatureFlags;
 }
 
 export const isMotionEndEvent = (event: MotionStartEvent | MotionEndEvent): event is MotionEndEvent =>

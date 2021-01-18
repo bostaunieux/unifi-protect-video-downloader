@@ -5,9 +5,10 @@ import Api from "./api";
 import EventProcessor from "./event_processor";
 import { CameraDetails, CameraId, isMotionEndEvent } from "./types";
 
-const { CAMERAS, DOWNLOAD_PATH, MQTT_HOST, UNIFI_HOST, UNIFI_USER, UNIFI_PASS } = process.env;
+const { CAMERAS, DOWNLOAD_PATH, PREFER_SMART_MOTION, MQTT_HOST, UNIFI_HOST, UNIFI_USER, UNIFI_PASS } = process.env;
 
 const cameraNames = CAMERAS?.split(",").map((camera) => camera.trim()) ?? [];
+const enableSmartMotion = PREFER_SMART_MOTION === undefined || PREFER_SMART_MOTION === "true";
 
 // const mqttCameraNames = cameraNames.map((camera) => camera.toLowerCase().replace(/\s/g, "_"));
 
@@ -50,9 +51,19 @@ const initialize = async () => {
 
   api.addSubscriber((message) => {
     const event = eventProcessor.parseMessage(message);
-    if (event && isMotionEndEvent(event) && camerasById.has(event.camera)) {
-      console.info("Processing event: %s", event);
-      api.downloadVideo(event);
+    const camera = event?.camera && camerasById.get(event.camera);
+
+    if (event && isMotionEndEvent(event) && camera) {
+      const hasSmartDetect = camera.featureFlags.hasSmartDetect;
+      const isSmartEvent = event.type === "smart";
+
+      if (
+        !hasSmartDetect ||
+        (hasSmartDetect && ((enableSmartMotion && isSmartEvent) || (!enableSmartMotion && !isSmartEvent)))
+      ) {
+        console.info("Processing event: %s", event);
+        api.downloadVideo(event);
+      }
     }
   });
 
