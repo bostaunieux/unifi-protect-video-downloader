@@ -1,21 +1,48 @@
 # unifi-protect-video-downloader
 
-> This project relies on an old firmware (pre Unifi OS) and does not currently work. Changes coming to upgrade this to use new features enabled in Unifi OS.
+This will listen for motion events triggered from a UniFi NVR device running UnifiOS. This has been tested on a Cloud Key Gen2+, but should work on any other device running the same OS. When a motion event is triggered by a camera, it will download a video for the duration of the recording.
 
-This will listen for motion events triggered from the unifi protect mqtt motion event service and trigger a download of the video. Note this relies on a separate process for publishing start and end events to the mqtt broker for each camera.
+## Output
 
-## Docker setup
+When a start motion event is detected, this service will wait for the corresponding end motion event. At that point, a video export will be requested from the NVR and written within the configured download directory.
 
-1. Mount a `/downloads` directory where videos will be downloaded. They will have the format`/{cameraName}/YYYY/MM/DD/YY-MM-DD_HH.MM_${timestamp}.mp4`
-2. Define the following ENV vars
-   * `MQTT_HOST` - mqtt broker host, e.g. "mqtt://192.168.1.10",
-   * `MQTT_USER` - username for connecting to mqtt broker
-   * `MQTT_PASS` - password for connecting to mqtt broker
-   * `UNIFI_HOST` - unifi protect host, e.g. "192.168.1.10"
-   * `UNIFI_USER` - username for unifi protect server (see directions below)
-   * `UNIFI_PASS` - password for unifi protect server (see directions below)
-   * `CAMERAS` - Optional, comma-separated list of camera names to record , e.g. 'Front Door, Driveway' (all will be recorded if not specified)
+Download files will written in separate directories following the format:
+```
+/CAMERA_NAME/YYYY/MM/DD/YYYY-MM-DD_HH.MM.SS_TIMESTAMP.mp4
+```
+e.g.
+```
+/Front Door/2021/01/15/2021-02-15_12.05.30_1610712330.mp4
+```
 
+## Running via command line
+1. Configure required parameters for the service, either using env vars, or by defining a `.env` file containing properties in the format of: `FIELD=VALUE`.
+2. Install dependencies
+   ```
+   yarn install
+   ```
+3. Start the service
+   ```
+   yarn run start
+   ```
+
+## Running via docker
+
+1. Mount a `/downloads` directory where videos will be downloaded
+2. Define all required fields via ENV vars
+
+
+## Configuration
+
+| Field               | Required | Description                                                                                               | Default            |
+|---------------------|----------|-----------------------------------------------------------------------------------------------------------|--------------------|
+| UNIFI_HOST          | Yes      | UniFi NVR running unifi protect (e.g. `192.168.1.10`)                                                     | N/A                |
+| UNIFI_USER          | Yes      | Username for unifi protect server (see directions below)                                                  | N/A                |
+| UNIFI_PASS          | Yes      | Password for unifi protect server (see directions below)                                                  | N/A                |
+| MQTT_HOST           | No       | Mqtt broker host where availability topic will be posted (e.g. `mqtt://[username:password]@192.168.1.10`) | N/A                |
+| CAMERAS             | No       | Comma-separated list of camera names to record (e.g. `Front Door, Garage`)                                | Record all cameras |
+| DOWNLOAD_PATH       | No       | Root file path where downloads will be placed                                                             | `/downloads`       |
+| PREFER_SMART_MOTION | No       | For cameras supporting smart detection, record smart motion events instead of basic optical motion events | true               |
 ## User account creation
 
 1. Login to protect web ui and navigate to users section
@@ -27,4 +54,4 @@ This will listen for motion events triggered from the unifi protect mqtt motion 
 
 ## Acknowledgements
 
-Real-time events integration heavily aided by API document from https://github.com/hjdhjd/homebridge-unifi-protect
+Real-time events integration heavily aided by API documentation from https://github.com/hjdhjd/homebridge-unifi-protect
