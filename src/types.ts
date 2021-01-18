@@ -1,16 +1,31 @@
-export interface MotionEvent {
+export interface MotionStartEvent {
   // camera id
-  camera: string;
+  camera: CameraId;
   // event start timestamp
-  start: number;
+  start: Timestamp;
+}
+
+export interface MotionEndEvent extends MotionStartEvent {
   // event end timestamp
-  end: number;
+  end: Timestamp;
 }
 
-export interface CameraTimestamps {
-  [key: string]: number;
+export interface CameraDetails {
+  // unique id
+  id: CameraId;
+  // display friently camera name, e.g. Front Door
+  name: string;
+  // camera mac address
+  mac: string;
+  // camera ip address
+  host: string;
+  // camera type, e.g. UVC G3 Instant
+  type: string;
 }
 
-export interface DownloadQueue {
-  [key: string]: NodeJS.Timeout;
-}
+export const isMotionEndEvent = (event: MotionStartEvent | MotionEndEvent): event is MotionEndEvent =>
+  (event as MotionEndEvent)?.end !== undefined;
+
+export type CameraId = string;
+export type EventId = string;
+export type Timestamp = number;

@@ -3,30 +3,13 @@ import https from "https";
 import path from "path";
 import fs from "fs";
 import WebSocket from "ws";
-import { MotionEvent } from "./types";
+import { CameraDetails, MotionEndEvent, Timestamp } from "./types";
 
 interface ApiConfig {
   host: string;
   username: string;
   password: string;
   downloadPath: string;
-}
-
-interface RequestHeaders {
-  [key: string]: string;
-}
-
-interface CameraDetails {
-  // unique id
-  id: string;
-  // display friently camera name, e.g. Front Door
-  name: string;
-  // camera mac address
-  mac: string;
-  // camera ip address
-  host: string;
-  // camera type, e.g. UVC G3 Instant
-  type: string;
 }
 
 interface NvrData {
@@ -59,9 +42,14 @@ interface DownloadOptions {
   padding: number;
 }
 
-const EVENTS_HEARTBEAT_INTERVAL_MS = 10 * 1000;
+// ws heartbeat timeout before considering the connection severed, in seconds
+const EVENTS_HEARTBEAT_INTERVAL_SEC = 10;
 
-const REAUTHENTICATION_INTERVAL_MS = 3600 * 1000;
+// interval before we attempt to re-authenticate any requests, in seconds
+const REAUTHENTICATION_INTERVAL_SEC = 3600;
+
+// delay from when a video download is requested to when it actually happens, in seconds
+const VIDEO_DOWNLOAD_DELAY_SEC = 15;
 
 export default class Api {
   private host: string;
@@ -69,8 +57,8 @@ export default class Api {
   private password: string;
   private downloadPath: string;
   private request;
-  private headers: RequestHeaders | null;
-  private loginExpirationTimestamp: number;
+  private headers: Record<string, string> | null;
+  private loginExpiry: Timestamp;
   private isSubscribed: boolean;
   private subscribers: Set<(event: Buffer) => void>;
   private bootstrap: BootstrapResponse | null;
@@ -85,38 +73,55 @@ export default class Api {
         rejectUnauthorized: false,
       }),
     });
-    this.loginExpirationTimestamp = 0;
+    this.loginExpiry = 0;
     this.headers = null;
     this.subscribers = new Set();
     this.isSubscribed = false;
     this.bootstrap = null;
   }
 
+  /**
+   * Setup the api connection for future requests and connect to the nvr websocket server
+   */
   public async initialize(): Promise<void> {
     const { cameras } = await this.getBootstrap();
     console.info(
       "Found cameras: %s",
-      cameras.map((c) => c.name)
+      cameras.map((c) => `${c.id} : ${c.name}`)
     );
 
     await this.subscribeToUpdates();
   }
 
+  /**
+   * Get all available cameras configured in the nvr
+   */
+  public getCameras(): Array<CameraDetails> {
+    return this.bootstrap?.cameras ?? [];
+  }
+
+  /**
+   * Add an event handler for websocket message events
+   * @param eventHandler Callback for processing websocket messages
+   */
   public addSubscriber(eventHandler: (event: Buffer) => void): void {
     this.subscribers.add(eventHandler);
   }
 
+  /**
+   * Remove all event handler subscriptions
+   */
   public clearSubscribers(): void {
     this.subscribers.clear();
   }
 
-  public async subscribeToUpdates(): Promise<void | Error> {
+  private async subscribeToUpdates(): Promise<void | Error> {
     if (this.isSubscribed) {
       return;
     }
 
     if (!(await this.authenticate())) {
-      throw new Error("Unable to subscribe to events; failed fetching auth token");
+      throw new Error("Unable to subscribe to events; failed fetching auth headers");
     }
     const webSocketUrl = `wss://${this.host}/proxy/protect/ws/updates?lastUpdateId=${this.bootstrap?.lastUpdateId}`;
 
@@ -140,22 +145,22 @@ export default class Api {
       // sends out pings plus a conservative assumption of the latency.
       pingTimeout = setTimeout(() => {
         // ws.terminate();
-      }, EVENTS_HEARTBEAT_INTERVAL_MS);
+      }, EVENTS_HEARTBEAT_INTERVAL_SEC * 1000);
     };
 
-    let keepAliveTimer: NodeJS.Timeout;
-    const keepAlive = () => {
-      const timeout = 20000;
-      if (ws.readyState === ws.OPEN) {
-        ws.ping();
-      }
-      keepAliveTimer = setTimeout(keepAlive, timeout);
-    };
-    const cancelKeepAlive = () => {
-      if (keepAliveTimer) {
-        clearTimeout(keepAliveTimer);
-      }
-    };
+    // let keepAliveTimer: NodeJS.Timeout;
+    // const keepAlive = () => {
+    //   const timeout = 20000;
+    //   if (ws.readyState === ws.OPEN) {
+    //     ws.ping();
+    //   }
+    //   keepAliveTimer = setTimeout(keepAlive, timeout);
+    // };
+    // const cancelKeepAlive = () => {
+    //   if (keepAliveTimer) {
+    //     clearTimeout(keepAliveTimer);
+    //   }
+    // };
 
     ws.on("open", () => {
       console.info("Connected to UnifiOS websocket server for event updates");
@@ -191,15 +196,14 @@ export default class Api {
     const now = Date.now();
 
     // do we need to reauthenticate?
-    if (now < this.loginExpirationTimestamp && this.headers) {
+    if (now < this.loginExpiry && this.headers) {
       console.info("Using cached authentication");
       return true;
     }
 
     console.info("Requesting new authentication...");
 
-    // make an intial request to the unifi os entry page to "borrow" the csrf token
-    // it generates
+    // make an intial request to the unifi os entry page to "borrow" the csrf token it generates
     const htmlResponse = await this.request.get(`https://${this.host}`);
 
     if (htmlResponse?.status !== 200 || !htmlResponse?.headers["x-csrf-token"]) {
@@ -234,14 +238,14 @@ export default class Api {
       "X-CSRF-Token": csrfToken,
     };
 
-    this.loginExpirationTimestamp = now + REAUTHENTICATION_INTERVAL_MS;
+    this.loginExpiry = now + (REAUTHENTICATION_INTERVAL_SEC * 1000);
 
     return true;
   }
 
   private async getBootstrap(): Promise<BootstrapResponse> {
     if (!(await this.authenticate())) {
-      throw new Error("Authenfication failed when fetching cameras");
+      throw new Error("Unable to get bootstrap details; failed fetching auth headers");
     }
 
     const response = await this.request.get<BootstrapResponse>(`https://${this.host}/proxy/protect/api/bootstrap`, {
@@ -257,19 +261,28 @@ export default class Api {
     return response.data;
   }
 
-  public async downloadVideo({ camera: id, start, end }: MotionEvent, options?: DownloadOptions): Promise<void> {
-    const { padding } = options ?? { padding: 5000 };
-    // add padding to timestamps
-    start = start - 5000;
-    end = end + 5000;
+  /**
+   * Request a video download for the specified camera between the start and end timestamps
+   */
+  public async downloadVideo(
+    { camera: id, start, end }: MotionEndEvent /*, options?: DownloadOptions*/
+  ): Promise<void> {
+    // const { padding } = options ?? { padding: 5000 };
+    // // add padding to timestamps
+    // start = start - 5000;
+    // end = end + 5000;
 
-    const camera = this.bootstrap?.cameras.find((cam) => (cam.id = id));
+    const camera = this.bootstrap?.cameras.find((cam) => cam.id === id);
     if (!camera) {
-      // TODO: better logging
+      console.error("Encountered unknown camera id: %s, unable to download video", id);
       return;
     }
     const { filePath, fileName } = this.generateFileAttributes(camera.name, start);
-    console.info('Downloading video with length: %s seconds, to file path: %s', Math.round((end - start) / 1000), filePath);
+    console.info(
+      "Downloading video with length: %s seconds, to file path: %s",
+      Math.round((end - start) / 1000),
+      filePath
+    );
 
     try {
       await fs.promises.access(filePath);
@@ -278,30 +291,36 @@ export default class Api {
       await fs.promises.mkdir(filePath, { recursive: true });
     }
 
-    let response;
-    try {
-      response = await this.request.get(`https://${this.host}/api/video/export`, {
-        headers: this.headers,
-        responseType: "stream",
-        params: {
-          start,
-          end,
-          camera: camera.id,
-        },
+    // delay the video download to avoid requesting a time window before it's available
+    // in practice, requesting the video immediately will more often than not result in a 500
+    setTimeout(async () => {
+      let response;
+      try {
+        response = await this.request.get(`https://${this.host}/proxy/protect/api/video/export`, {
+          headers: this.headers,
+          responseType: "stream",
+          params: {
+            start,
+            end,
+            camera: camera.id,
+            filename: fileName,
+            channel: 0,
+          },
+        });
+      } catch (e) {
+        console.error("Unable to download video", e);
+        return;
+      }
+
+      const writer = fs.createWriteStream(`${filePath}/${fileName}`);
+
+      response.data.pipe(writer);
+
+      return new Promise((resolve, reject) => {
+        writer.on("finish", resolve);
+        writer.on("error", reject);
       });
-    } catch (e) {
-      console.error("Unable to download video", e);
-      return;
-    }
-
-    const writer = fs.createWriteStream(`${filePath}/${fileName}`);
-
-    response.data.pipe(writer);
-
-    return new Promise((resolve, reject) => {
-      writer.on("finish", resolve);
-      writer.on("error", reject);
-    });
+    }, VIDEO_DOWNLOAD_DELAY_SEC * 1000);
   }
 
   private generateFileAttributes(cameraName: string, timestamp: number): FileAttributes {
@@ -313,10 +332,11 @@ export default class Api {
     const day = padDatePart(date.getDate());
     const hour = padDatePart(date.getHours());
     const minute = padDatePart(date.getMinutes());
+    const seconds = padDatePart(date.getSeconds());
 
     const filePath = path.resolve(this.downloadPath, cameraName, year, month, day);
 
-    const fileName = `${filePath}/${year}-${month}-${day}_${hour}.${minute}_${timestamp}.mp4`;
+    const fileName = `${year}-${month}-${day}_${hour}.${minute}.${seconds}_${timestamp}.mp4`;
     return { filePath, fileName };
   }
 }
