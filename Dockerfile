@@ -6,11 +6,13 @@ WORKDIR /app
 
 COPY . .
 
-RUN npm install --production
+RUN npm install
 
-RUN npm run build-prod
+RUN npm install pm2 -g
 
-CMD ["npm", "start"]
+RUN npm run build
+
+CMD ["pm2-runtime", "dist/index.js"]
 
 
 
