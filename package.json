@@ -1,9 +1,9 @@
 {
   "name": "@bostaunieux/unifi-protect-video-downloader",
-  "version": "0.5.0",
+  "version": "1.0.0",
   "description": "Node service for processing unifi protect motion events and triggering a video download",
   "author": "bostaunieux",
-  "license": "ISC",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/bostaunieux/unifi-protect-video-downloader.git"
