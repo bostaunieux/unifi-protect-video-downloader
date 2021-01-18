@@ -38,10 +38,6 @@ interface FileAttributes {
   filePath: string;
 }
 
-interface DownloadOptions {
-  padding: number;
-}
-
 // ws heartbeat timeout before considering the connection severed, in seconds
 const EVENTS_HEARTBEAT_INTERVAL_SEC = 10;
 
@@ -238,7 +234,7 @@ export default class Api {
       "X-CSRF-Token": csrfToken,
     };
 
-    this.loginExpiry = now + (REAUTHENTICATION_INTERVAL_SEC * 1000);
+    this.loginExpiry = now + REAUTHENTICATION_INTERVAL_SEC * 1000;
 
     return true;
   }

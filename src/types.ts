@@ -1,8 +1,11 @@
+export type MotionType = "smart" | "basic";
+
 export interface MotionStartEvent {
   // camera id
   camera: CameraId;
   // event start timestamp
   start: Timestamp;
+  type?: MotionType;
 }
 
 export interface MotionEndEvent extends MotionStartEvent {

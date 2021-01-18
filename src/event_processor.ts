@@ -89,7 +89,7 @@ export default class EventProcessor {
       const { id, type, camera, smartDetectTypes, start } = (payload as unknown) as AddEventPayload;
 
       if (type === "smartDetectZone" && smartDetectTypes.length) {
-        const motionStartEvent = { camera, start };
+        const motionStartEvent: MotionStartEvent = { camera, start, type: "smart" };
         // process smart motion event
         console.info("Queuing start motion event for camera: %s, start: %d", camera, start);
         this.smartMotionEvents.set(id, motionStartEvent);
@@ -106,11 +106,11 @@ export default class EventProcessor {
     // check for smart motion end event
     if (action.modelKey === "event" && action.action === "update") {
       const { score, end } = (payload as unknown) as UpdateEventPayload;
-      const { camera, start } = this.smartMotionEvents.get(action.id) ?? {};
-      if (camera && start && end) {
+      const { camera, start, type } = this.smartMotionEvents.get(action.id) ?? {};
+      if (camera && start && end && type) {
         // process end motion event
         console.info("Processing end motion event for camera: %s score: %d", camera, score);
-        return { camera, start, end };
+        return { camera, start, end, type };
       }
     }
 
@@ -123,13 +123,13 @@ export default class EventProcessor {
         // process start motion event
         console.info("Processing start basic motion event for camera: %s", camera);
         this.motionEvents.set(camera, lastMotion);
-        return { camera, start: lastMotion };
+        return { camera, start: lastMotion, type: "basic" };
       } else if (lastMotion && isMotionDetected === false) {
         // process end motion event
         const firstMotion = this.motionEvents.get(action.id);
         if (firstMotion) {
           this.motionEvents.delete(action.id);
-          return { camera, start: firstMotion, end: lastMotion };
+          return { camera, start: firstMotion, end: lastMotion, type: "basic" };
         }
       }
     }

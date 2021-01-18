@@ -54,7 +54,6 @@ const initialize = async () => {
       console.info("Processing event: %s", event);
       api.downloadVideo(event);
     }
-    // need to confirm what the camera id is
   });
 
   const client: Client = mqtt.connect(MQTT_HOST, {
