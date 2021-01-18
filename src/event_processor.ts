@@ -1,5 +1,5 @@
 import zlib from "zlib";
-import { CameraId, EventId, MotionEvent, Timestamp } from "./types";
+import { CameraId, EventId, MotionEndEvent, MotionStartEvent, Timestamp } from "./types";
 
 interface EventAction {
   action: string;
@@ -8,7 +8,7 @@ interface EventAction {
   newUpdateId: string;
 }
 
-// properties on an 'update' event payload vary based on the prior event 
+// properties on an 'update' event payload vary based on the prior event
 // they're referencing; therefore are properties are optional
 interface UpdateEventPayload {
   isMotionDetected?: boolean;
@@ -37,20 +37,14 @@ interface DecodedEvent {
   payload: Record<string, string>;
 }
 
-interface QueuedSmartEvent {
-  camera: CameraId;
-  start: Timestamp;
-}
-
 // number of bytes in a packet within the message
 const PACKET_BYTE_SIZE = 8;
 // offset within the message buffer where the payload size is stored
 const PACKET_PAYLOAD_SIZE_OFFSET = 4;
 
-
 export default class EventProcessor {
   // event id -> motion start details
-  smartMotionEvents: Map<EventId, QueuedSmartEvent>;
+  smartMotionEvents: Map<EventId, MotionStartEvent>;
   // camera id -> motion start timestamp
   motionEvents: Map<CameraId, Timestamp>;
 
@@ -62,16 +56,16 @@ export default class EventProcessor {
   /**
    * Parse the incoming message from the NVR into a consumable format. This will ignore
    * the majority of messages it cares about and focus solely on the subset having to do
-   * with motion events from cameras. When either a start motion event or start smart 
+   * with motion events from cameras. When either a start motion event or start smart
    * motion event is received, it will be queued until the corresponding end event is
    * received. At this time, the full motion event will be returned
-   * 
+   *
    * TODO: return a StartMotionEvent so clients can be notified immediately when motion
    * starts. Also differentiate smart vs dumb motion events.
-   * 
+   *
    * @param message {Buffer} Message buffer for NVR activity event
    */
-  public parseMessage(message: Buffer): MotionEvent | null {
+  public parseMessage(message: Buffer): MotionStartEvent | MotionEndEvent | null {
     const { action, payload } = this.decodeBuffer(message) ?? {};
 
     if (
@@ -95,45 +89,47 @@ export default class EventProcessor {
       const { id, type, camera, smartDetectTypes, start } = (payload as unknown) as AddEventPayload;
 
       if (type === "smartDetectZone" && smartDetectTypes.length) {
+        const motionStartEvent: MotionStartEvent = { camera, start, type: "smart" };
         // process smart motion event
         console.info("Queuing start motion event for camera: %s, start: %d", camera, start);
-        this.smartMotionEvents.set(id, { camera, start });
+        this.smartMotionEvents.set(id, motionStartEvent);
 
         // register a delayed handler to clear the event from the queue
         setTimeout(() => {
           this.smartMotionEvents.delete(id);
         }, 10 * 60 * 1000);
 
-        return null;
+        return motionStartEvent;
       }
     }
 
     // check for smart motion end event
     if (action.modelKey === "event" && action.action === "update") {
       const { score, end } = (payload as unknown) as UpdateEventPayload;
-      const { camera, start } = this.smartMotionEvents.get(action.id) ?? {};
-      if (camera && start && end) {
+      const { camera, start, type } = this.smartMotionEvents.get(action.id) ?? {};
+      if (camera && start && end && type) {
         // process end motion event
         console.info("Processing end motion event for camera: %s score: %d", camera, score);
-        return { camera, start, end };
+        return { camera, start, end, type };
       }
     }
 
     //check for basic motion start event
     if (action.modelKey === "camera" && action.action === "update") {
       const { lastMotion, isMotionDetected } = (payload as unknown) as UpdateEventPayload;
+      const camera = action.id;
 
       if (lastMotion && isMotionDetected === true) {
         // process start motion event
-        console.info("Processing start basic motion event for camera: %s", action.id);
-        this.motionEvents.set(action.id, lastMotion);
-
+        console.info("Processing start basic motion event for camera: %s", camera);
+        this.motionEvents.set(camera, lastMotion);
+        return { camera, start: lastMotion, type: "basic" };
       } else if (lastMotion && isMotionDetected === false) {
         // process end motion event
         const firstMotion = this.motionEvents.get(action.id);
         if (firstMotion) {
           this.motionEvents.delete(action.id);
-          return { camera: action.id, start: firstMotion, end: lastMotion };
+          return { camera, start: firstMotion, end: lastMotion, type: "basic" };
         }
       }
     }
