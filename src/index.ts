@@ -4,6 +4,7 @@ import mqtt, { Client } from "mqtt";
 import Api from "./api";
 import EventProcessor from "./event_processor";
 import { CameraDetails, CameraId, isMotionEndEvent } from "./types";
+import VideoDownloader from "./video_downloader";
 
 const { CAMERAS, DOWNLOAD_PATH, PREFER_SMART_MOTION, MQTT_HOST, UNIFI_HOST, UNIFI_USER, UNIFI_PASS } = process.env;
 
@@ -17,15 +18,17 @@ if (!UNIFI_HOST || !UNIFI_USER || !UNIFI_PASS) {
   process.exit(1);
 }
 
-const api = new Api({
-  host: UNIFI_HOST,
-  username: UNIFI_USER,
-  password: UNIFI_PASS,
-  downloadPath: DOWNLOAD_PATH ?? "/downloads",
-});
-
 const eventProcessor = new EventProcessor();
 const initialize = async () => {
+  const api = new Api({
+    host: UNIFI_HOST,
+    username: UNIFI_USER,
+    password: UNIFI_PASS,
+    downloadPath: DOWNLOAD_PATH ?? "/downloads",
+  });
+
+  const downloader = new VideoDownloader(api);
+
   try {
     await api.initialize();
   } catch (error) {
@@ -62,7 +65,7 @@ const initialize = async () => {
         (hasSmartDetect && ((enableSmartMotion && isSmartEvent) || (!enableSmartMotion && !isSmartEvent)))
       ) {
         console.info("Processing event: %s", event);
-        api.downloadVideo(event);
+        downloader.queueDownload(event);
       }
     }
   });

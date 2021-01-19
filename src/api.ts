@@ -44,9 +44,6 @@ const EVENTS_HEARTBEAT_INTERVAL_SEC = 10;
 // interval before we attempt to re-authenticate any requests, in seconds
 const REAUTHENTICATION_INTERVAL_SEC = 3600;
 
-// delay from when a video download is requested to when it actually happens, in seconds
-const VIDEO_DOWNLOAD_DELAY_SEC = 15;
-
 export default class Api {
   private host: string;
   private username: string;
@@ -260,13 +257,10 @@ export default class Api {
   /**
    * Request a video download for the specified camera between the start and end timestamps
    */
-  public async downloadVideo(
-    { camera: id, start, end }: MotionEndEvent /*, options?: DownloadOptions*/
-  ): Promise<void> {
-    // const { padding } = options ?? { padding: 5000 };
-    // // add padding to timestamps
-    // start = start - 5000;
-    // end = end + 5000;
+  public async downloadVideo({ camera: id, start, end }: MotionEndEvent): Promise<void> {
+    if (!(await this.authenticate())) {
+      throw new Error("Unable to download video; failed fetching auth headers");
+    }
 
     const camera = this.bootstrap?.cameras.find((cam) => cam.id === id);
     if (!camera) {
@@ -287,36 +281,26 @@ export default class Api {
       await fs.promises.mkdir(filePath, { recursive: true });
     }
 
-    // delay the video download to avoid requesting a time window before it's available
-    // in practice, requesting the video immediately will more often than not result in a 500
-    setTimeout(async () => {
-      let response;
-      try {
-        response = await this.request.get(`https://${this.host}/proxy/protect/api/video/export`, {
-          headers: this.headers,
-          responseType: "stream",
-          params: {
-            start,
-            end,
-            camera: camera.id,
-            filename: fileName,
-            channel: 0,
-          },
-        });
-      } catch (e) {
-        console.error("Unable to download video", e);
-        return;
-      }
+    const response = await this.request.get(`https://${this.host}/proxy/protect/api/video/export`, {
+      headers: this.headers,
+      responseType: "stream",
+      params: {
+        start,
+        end,
+        camera: camera.id,
+        filename: fileName,
+        channel: 0,
+      },
+    });
 
-      const writer = fs.createWriteStream(`${filePath}/${fileName}`);
+    const writer = fs.createWriteStream(`${filePath}/${fileName}`);
 
-      response.data.pipe(writer);
+    response.data.pipe(writer);
 
-      return new Promise((resolve, reject) => {
-        writer.on("finish", resolve);
-        writer.on("error", reject);
-      });
-    }, VIDEO_DOWNLOAD_DELAY_SEC * 1000);
+    return new Promise((resolve, reject) => {
+      writer.on("finish", resolve);
+      writer.on("error", reject);
+    });
   }
 
   private generateFileAttributes(cameraName: string, timestamp: number): FileAttributes {
