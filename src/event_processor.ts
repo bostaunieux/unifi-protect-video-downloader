@@ -68,15 +68,6 @@ export default class EventProcessor {
   public parseMessage(message: Buffer): MotionStartEvent | MotionEndEvent | null {
     const { action, payload } = this.decodeBuffer(message) ?? {};
 
-    if (
-      action?.modelKey == "camera" &&
-      !payload?.stats &&
-      !payload?.wifiConnectionState &&
-      !(payload?.upSince && Object.keys(payload)?.length === 2)
-    ) {
-      console.debug("action: %s, payload: %s", action, payload);
-    }
-
     if (!payload || !action) {
       console.debug("Skipping unrecognized message");
       return null;
