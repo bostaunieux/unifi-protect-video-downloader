@@ -39,7 +39,7 @@ interface FileAttributes {
 }
 
 // ws heartbeat timeout before considering the connection severed, in seconds
-const EVENTS_HEARTBEAT_INTERVAL_SEC = 10;
+const EVENTS_HEARTBEAT_INTERVAL_SEC = 20;
 
 // interval before we attempt to re-authenticate any requests, in seconds
 const REAUTHENTICATION_INTERVAL_SEC = 3600;
@@ -52,9 +52,10 @@ export default class Api {
   private request;
   private headers: Record<string, string> | null;
   private loginExpiry: Timestamp;
-  private isConnected: boolean;
-  private subscribers: Set<(event: Buffer) => void>;
   private bootstrap: BootstrapResponse | null;
+  private socket: WebSocket | null;
+  private subscribers: Set<(event: Buffer) => void>;
+  
 
   constructor({ host, username, password, downloadPath }: ApiConfig) {
     this.host = host;
@@ -68,9 +69,9 @@ export default class Api {
     });
     this.loginExpiry = 0;
     this.headers = null;
-    this.subscribers = new Set();
-    this.isConnected = false;
     this.bootstrap = null;
+    this.socket = null;
+    this.subscribers = new Set();
   }
 
   /**
@@ -109,7 +110,7 @@ export default class Api {
   }
 
   private async connect(): Promise<void | Error> {
-    if (this.isConnected) {
+    if (this.socket) {
       return;
     }
 
@@ -120,7 +121,7 @@ export default class Api {
 
     console.debug("Connecting to ws server url: %s", webSocketUrl);
 
-    const ws = new WebSocket(webSocketUrl, {
+    this.socket = new WebSocket(webSocketUrl, {
       headers: {
         Cookie: this.headers?.["Cookie"],
       },
@@ -135,36 +136,34 @@ export default class Api {
       // Use `WebSocket#terminate()`, which immediately destroys the connection,
       // instead of `WebSocket#close()`, which waits for the close timer.
       pingTimeout = setTimeout(() => {
-        ws.terminate();
-        this.isConnected = false;
+        this.socket?.terminate();
+        this.socket = null;
         this.connect();
       }, EVENTS_HEARTBEAT_INTERVAL_SEC * 1000);
     };
 
-    ws.on("open", () => {
+    this.socket.on("open", () => {
       console.info("Connected to UnifiOS websocket server for event updates");
       heartbeat();
     });
-    ws.on("ping", heartbeat);
-    ws.on("message", (event: Buffer) => {
+    this.socket.on("ping", heartbeat);
+    this.socket.on("message", (event: Buffer) => {
       this.subscribers.forEach((subscriber) => subscriber(event));
     });
 
-    ws.on("close", () => {
+    this.socket.on("close", () => {
       console.info("WebSocket connection closed");
       clearTimeout(pingTimeout);
     });
 
-    ws.on("error", (error) => {
+    this.socket.on("error", (error) => {
       console.error("WebSocket connection error: %s", error.message);
       console.error("Websocket connection error: %s", error);
 
-      ws.terminate();
-      this.isConnected = false;
+      this.socket?.terminate();
+      this.socket = null;
       this.connect();
     });
-
-    this.isConnected = true;
   }
 
   private async authenticate(): Promise<boolean> {
