@@ -55,7 +55,6 @@ export default class Api {
   private bootstrap: BootstrapResponse | null;
   private socket: WebSocket | null;
   private subscribers: Set<(event: Buffer) => void>;
-  
 
   constructor({ host, username, password, downloadPath }: ApiConfig) {
     this.host = host;
@@ -85,6 +84,10 @@ export default class Api {
     );
 
     await this.connect();
+
+    setInterval(async () => {
+      await this.connect();
+    }, 5000);
   }
 
   /**
@@ -137,8 +140,6 @@ export default class Api {
       // instead of `WebSocket#close()`, which waits for the close timer.
       pingTimeout = setTimeout(() => {
         this.socket?.terminate();
-        this.socket = null;
-        this.connect();
       }, EVENTS_HEARTBEAT_INTERVAL_SEC * 1000);
     };
 
@@ -148,12 +149,14 @@ export default class Api {
     });
     this.socket.on("ping", heartbeat);
     this.socket.on("message", (event: Buffer) => {
+      heartbeat();
       this.subscribers.forEach((subscriber) => subscriber(event));
     });
 
     this.socket.on("close", () => {
       console.info("WebSocket connection closed");
       clearTimeout(pingTimeout);
+      this.socket = null;
     });
 
     this.socket.on("error", (error) => {
@@ -161,8 +164,6 @@ export default class Api {
       console.error("Websocket connection error: %s", error);
 
       this.socket?.terminate();
-      this.socket = null;
-      this.connect();
     });
   }
 
