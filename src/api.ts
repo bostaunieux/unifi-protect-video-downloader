@@ -52,7 +52,7 @@ export default class Api {
   private request;
   private headers: Record<string, string> | null;
   private loginExpiry: Timestamp;
-  private isSubscribed: boolean;
+  private isConnected: boolean;
   private subscribers: Set<(event: Buffer) => void>;
   private bootstrap: BootstrapResponse | null;
 
@@ -69,7 +69,7 @@ export default class Api {
     this.loginExpiry = 0;
     this.headers = null;
     this.subscribers = new Set();
-    this.isSubscribed = false;
+    this.isConnected = false;
     this.bootstrap = null;
   }
 
@@ -83,7 +83,7 @@ export default class Api {
       cameras.map((c) => `${c.id} : ${c.name}`)
     );
 
-    await this.subscribeToUpdates();
+    await this.connect();
   }
 
   /**
@@ -108,8 +108,8 @@ export default class Api {
     this.subscribers.clear();
   }
 
-  private async subscribeToUpdates(): Promise<void | Error> {
-    if (this.isSubscribed) {
+  private async connect(): Promise<void | Error> {
+    if (this.isConnected) {
       return;
     }
 
@@ -134,31 +134,16 @@ export default class Api {
 
       // Use `WebSocket#terminate()`, which immediately destroys the connection,
       // instead of `WebSocket#close()`, which waits for the close timer.
-      // Delay should be equal to the interval at which your server
-      // sends out pings plus a conservative assumption of the latency.
       pingTimeout = setTimeout(() => {
-        // ws.terminate();
+        ws.terminate();
+        this.isConnected = false;
+        this.connect();
       }, EVENTS_HEARTBEAT_INTERVAL_SEC * 1000);
     };
-
-    // let keepAliveTimer: NodeJS.Timeout;
-    // const keepAlive = () => {
-    //   const timeout = 20000;
-    //   if (ws.readyState === ws.OPEN) {
-    //     ws.ping();
-    //   }
-    //   keepAliveTimer = setTimeout(keepAlive, timeout);
-    // };
-    // const cancelKeepAlive = () => {
-    //   if (keepAliveTimer) {
-    //     clearTimeout(keepAliveTimer);
-    //   }
-    // };
 
     ws.on("open", () => {
       console.info("Connected to UnifiOS websocket server for event updates");
       heartbeat();
-      //   keepAlive();
     });
     ws.on("ping", heartbeat);
     ws.on("message", (event: Buffer) => {
@@ -167,22 +152,19 @@ export default class Api {
 
     ws.on("close", () => {
       console.info("WebSocket connection closed");
-      //   cancelKeepAlive();
       clearTimeout(pingTimeout);
     });
 
     ws.on("error", (error) => {
-      console.info("WebSocket connection error: %s", error.message);
-
-      // ignore expected errors
-      if (error.message !== "WebSocket was closed before the connection was established") {
-        console.error("Websocket connection error: %s", error);
-      }
+      console.error("WebSocket connection error: %s", error.message);
+      console.error("Websocket connection error: %s", error);
 
       ws.terminate();
+      this.isConnected = false;
+      this.connect();
     });
 
-    this.isSubscribed = true;
+    this.isConnected = true;
   }
 
   private async authenticate(): Promise<boolean> {
