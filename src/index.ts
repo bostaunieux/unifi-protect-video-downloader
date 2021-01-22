@@ -3,7 +3,7 @@ import "log-timestamp";
 import mqtt, { Client } from "mqtt";
 import Api from "./api";
 import EventProcessor from "./event_processor";
-import { CameraDetails, CameraId, isMotionEndEvent } from "./types";
+import { CameraDetails, CameraId, isMotionEndEvent, isMotionStartEvent } from "./types";
 import VideoDownloader from "./video_downloader";
 
 const { CAMERAS, DOWNLOAD_PATH, PREFER_SMART_MOTION, MQTT_HOST, UNIFI_HOST, UNIFI_USER, UNIFI_PASS } = process.env;
@@ -11,21 +11,29 @@ const { CAMERAS, DOWNLOAD_PATH, PREFER_SMART_MOTION, MQTT_HOST, UNIFI_HOST, UNIF
 const cameraNames = CAMERAS?.split(",").map((camera) => camera.trim()) ?? [];
 const enableSmartMotion = PREFER_SMART_MOTION === undefined || PREFER_SMART_MOTION === "true";
 
-// const mqttCameraNames = cameraNames.map((camera) => camera.toLowerCase().replace(/\s/g, "_"));
-
 if (!UNIFI_HOST || !UNIFI_USER || !UNIFI_PASS) {
   console.error("Unable to initialize; missing required configuration");
   process.exit(1);
 }
 
-const eventProcessor = new EventProcessor();
 const initialize = async () => {
+  const client: Client = mqtt.connect(MQTT_HOST, {
+    will: {
+      topic: "unifi/protect-downloader/availability",
+      payload: "offline",
+      qos: 1,
+      retain: true,
+    },
+  });
+
   const api = new Api({
     host: UNIFI_HOST,
     username: UNIFI_USER,
     password: UNIFI_PASS,
     downloadPath: DOWNLOAD_PATH ?? "/downloads",
   });
+
+  const eventProcessor = new EventProcessor();
 
   const downloader = new VideoDownloader(api);
 
@@ -56,7 +64,11 @@ const initialize = async () => {
     const event = eventProcessor.parseMessage(message);
     const camera = event?.camera && camerasById.get(event.camera);
 
-    if (event && isMotionEndEvent(event) && camera) {
+    if (!event || !camera) {
+      return;
+    }
+
+    if (isMotionEndEvent(event)) {
       const hasSmartDetect = camera.featureFlags.hasSmartDetect;
       const isSmartEvent = event.type === "smart";
 
@@ -68,15 +80,15 @@ const initialize = async () => {
         downloader.queueDownload(event);
       }
     }
-  });
-
-  const client: Client = mqtt.connect(MQTT_HOST, {
-    will: {
-      topic: "unifi/protect-downloader/availability",
-      payload: "offline",
-      qos: 1,
-      retain: true,
-    },
+    
+    client.publish(
+      `unifi/protect-downloader/motion`,
+      JSON.stringify({ ...event, camera: { id: camera.id, name: camera.name } }),
+      {
+        qos: 1,
+        retain: true,
+      }
+    );
   });
 
   client.on("error", (error) => {
@@ -90,27 +102,6 @@ const initialize = async () => {
       qos: 1,
       retain: true,
     });
-
-    //   if (mqttCameraNames.length > 0) {
-    //     console.info(
-    //       `Subcribing to motion events for cameras: ${mqttCameraNames.join(", ")}`
-    //     );
-    //     mqttCameraNames.map((cameraName) =>
-    //       client.subscribe(`unifi/camera/motion/${cameraName}`)
-    //     );
-    //   } else {
-    //     console.info("Subcribing to motion events for all cameras");
-    //     client.subscribe("unifi/camera/motion/#");
-    //   }
-    // });
-
-    // client.on("message", (topic: string, message: Buffer) => {
-    //   if (topic.startsWith("unifi/camera/motion/")) {
-    //     const motionEvent: MotionEvent = JSON.parse(message.toString());
-    //     return videoDownloader.download(motionEvent);
-    //   }
-
-    //   console.warn("No handler for topic: %s", topic);
   });
 };
 

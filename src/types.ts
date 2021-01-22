@@ -32,6 +32,9 @@ export interface CameraDetails {
   featureFlags: FeatureFlags;
 }
 
+export const isMotionStartEvent = (event: MotionStartEvent | MotionEndEvent): event is MotionStartEvent =>
+  (event as MotionEndEvent)?.end === undefined;
+
 export const isMotionEndEvent = (event: MotionStartEvent | MotionEndEvent): event is MotionEndEvent =>
   (event as MotionEndEvent)?.end !== undefined;
 
