@@ -3,7 +3,7 @@ import "log-timestamp";
 import mqtt, { Client } from "mqtt";
 import Api from "./api";
 import EventProcessor from "./event_processor";
-import { CameraDetails, CameraId, isMotionEndEvent, isMotionStartEvent } from "./types";
+import { CameraDetails, CameraId, isMotionEndEvent } from "./types";
 import VideoDownloader from "./video_downloader";
 
 const { CAMERAS, DOWNLOAD_PATH, PREFER_SMART_MOTION, MQTT_HOST, UNIFI_HOST, UNIFI_USER, UNIFI_PASS } = process.env;
@@ -80,9 +80,9 @@ const initialize = async () => {
         downloader.queueDownload(event);
       }
     }
-    
+
     client.publish(
-      `unifi/protect-downloader/motion`,
+      `unifi/protect-downloader/${camera.id}/motion`,
       JSON.stringify({ ...event, camera: { id: camera.id, name: camera.name } }),
       {
         qos: 1,
