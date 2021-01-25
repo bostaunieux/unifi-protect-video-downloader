@@ -6,7 +6,7 @@ import EventProcessor from "./event_processor";
 import { CameraDetails, CameraId, isMotionEndEvent } from "./types";
 import VideoDownloader from "./video_downloader";
 
-const { CAMERAS, DOWNLOAD_PATH, PREFER_SMART_MOTION, MQTT_HOST, UNIFI_HOST, UNIFI_USER, UNIFI_PASS } = process.env;
+const { CAMERAS, DOWNLOAD_PATH, PREFER_SMART_MOTION, MQTT_HOST, UNIFI_HOST, UNIFI_USER, UNIFI_PASS, MQTT_PATH } = process.env;
 
 const cameraNames = CAMERAS?.split(",").map((camera) => camera.trim()) ?? [];
 const enableSmartMotion = PREFER_SMART_MOTION === undefined || PREFER_SMART_MOTION === "true";
@@ -19,7 +19,7 @@ if (!UNIFI_HOST || !UNIFI_USER || !UNIFI_PASS) {
 const initialize = async () => {
   const client: Client = mqtt.connect(MQTT_HOST, {
     will: {
-      topic: "unifi/protect-downloader/availability",
+      topic: "${MQTT_PATH}/availability",
       payload: "offline",
       qos: 1,
       retain: true,
@@ -82,7 +82,7 @@ const initialize = async () => {
     }
 
     client.publish(
-      `unifi/protect-downloader/${camera.id}/motion`,
+      `${MQTT_PATH}/${camera.id}/motion`,
       JSON.stringify({ ...event, camera: { id: camera.id, name: camera.name } }),
       {
         qos: 1,
@@ -98,7 +98,7 @@ const initialize = async () => {
   client.on("connect", () => {
     console.info("Connected to MQTT broker");
 
-    client.publish("unifi/protect-downloader/availability", "online", {
+    client.publish("${MQTT_PATH}/availability", "online", {
       qos: 1,
       retain: true,
     });
