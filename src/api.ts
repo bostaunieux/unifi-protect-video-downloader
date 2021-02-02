@@ -1,4 +1,5 @@
 import axios from "axios";
+import axiosRetry from "axios-retry";
 import https from "https";
 import path from "path";
 import fs from "fs";
@@ -61,16 +62,19 @@ export default class Api {
     this.username = username;
     this.password = password;
     this.downloadPath = downloadPath;
-    this.request = axios.create({
-      httpsAgent: new https.Agent({
-        rejectUnauthorized: false,
-      }),
-    });
     this.loginExpiry = 0;
     this.headers = null;
     this.bootstrap = null;
     this.socket = null;
     this.subscribers = new Set();
+
+    this.request = axios.create({
+      baseURL: `https://${this.host}`,
+      httpsAgent: new https.Agent({
+        rejectUnauthorized: false,
+      }),
+    });
+    axiosRetry(this.request, { retries: 5, retryDelay: axiosRetry.exponentialDelay });
   }
 
   /**
@@ -85,6 +89,7 @@ export default class Api {
 
     await this.connect();
 
+    // periodically check to confirm we're still connected
     setInterval(async () => {
       await this.connect();
     }, 5000);
@@ -179,7 +184,7 @@ export default class Api {
     console.info("Requesting new authentication...");
 
     // make an intial request to the unifi os entry page to "borrow" the csrf token it generates
-    const htmlResponse = await this.request.get(`https://${this.host}`);
+    const htmlResponse = await this.request.get(`/`);
 
     if (htmlResponse?.status !== 200 || !htmlResponse?.headers["x-csrf-token"]) {
       console.log("Unable to get initial CSFR token");
@@ -187,7 +192,7 @@ export default class Api {
     }
 
     const authResponse = await this.request.post(
-      `https://${this.host}/api/auth/login`,
+      "/api/auth/login",
       {
         username: this.username,
         password: this.password,
@@ -223,7 +228,7 @@ export default class Api {
       throw new Error("Unable to get bootstrap details; failed fetching auth headers");
     }
 
-    const response = await this.request.get<BootstrapResponse>(`https://${this.host}/proxy/protect/api/bootstrap`, {
+    const response = await this.request.get<BootstrapResponse>("/proxy/protect/api/bootstrap", {
       headers: this.headers,
     });
 
@@ -263,7 +268,7 @@ export default class Api {
       await fs.promises.mkdir(filePath, { recursive: true });
     }
 
-    const response = await this.request.get(`https://${this.host}/proxy/protect/api/video/export`, {
+    const response = await this.request.get("/proxy/protect/api/video/export", {
       headers: this.headers,
       responseType: "stream",
       params: {
