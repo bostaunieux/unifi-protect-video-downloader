@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosInstance } from "axios";
 import axiosRetry from "axios-retry";
 import https from "https";
 import path from "path";
@@ -50,23 +50,18 @@ export default class Api {
   private username: string;
   private password: string;
   private downloadPath: string;
-  private request;
-  private headers: Record<string, string> | null;
-  private loginExpiry: Timestamp;
-  private bootstrap: BootstrapResponse | null;
-  private socket: WebSocket | null;
-  private subscribers: Set<(event: Buffer) => void>;
+  private request: AxiosInstance;
+  private headers?: Record<string, string>;
+  private loginExpiry: Timestamp = 0;
+  private bootstrap?: BootstrapResponse;
+  private socket?: WebSocket;
+  private subscribers = new Set<(event: Buffer) => void>();
 
   constructor({ host, username, password, downloadPath }: ApiConfig) {
     this.host = host;
     this.username = username;
     this.password = password;
     this.downloadPath = downloadPath;
-    this.loginExpiry = 0;
-    this.headers = null;
-    this.bootstrap = null;
-    this.socket = null;
-    this.subscribers = new Set();
 
     this.request = axios.create({
       baseURL: `https://${this.host}`,
@@ -161,7 +156,7 @@ export default class Api {
     this.socket.on("close", () => {
       console.info("WebSocket connection closed");
       clearTimeout(pingTimeout);
-      this.socket = null;
+      this.socket = undefined;
     });
 
     this.socket.on("error", (error) => {

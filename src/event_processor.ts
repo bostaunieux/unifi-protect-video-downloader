@@ -44,14 +44,9 @@ const PACKET_PAYLOAD_SIZE_OFFSET = 4;
 
 export default class EventProcessor {
   // event id -> motion start details
-  smartMotionEvents: Map<EventId, MotionStartEvent>;
+  smartMotionEvents = new Map<EventId, MotionStartEvent>();
   // camera id -> motion start timestamp
-  motionEvents: Map<CameraId, Timestamp>;
-
-  constructor() {
-    this.smartMotionEvents = new Map();
-    this.motionEvents = new Map();
-  }
+  motionEvents = new Map<CameraId, Timestamp>();
 
   /**
    * Parse the incoming message from the NVR into a consumable format. This will ignore

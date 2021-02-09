@@ -9,13 +9,12 @@ interface QueuedDownload {
 const DOWNLOAD_INTERVAL_SEC = 60;
 
 export default class VideoDownloader {
-  queuedDownloads: Array<QueuedDownload>;
   api: Api;
   timer: NodeJS.Timeout;
+  queuedDownloads: Array<QueuedDownload> = [];
 
   constructor(api: Api) {
     this.api = api;
-    this.queuedDownloads = [];
     this.timer = setInterval(() => this.processEvent(), DOWNLOAD_INTERVAL_SEC * 1000);
   }
 
