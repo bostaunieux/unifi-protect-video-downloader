@@ -19,11 +19,11 @@ e.g.
 1. Configure required parameters for the service, either using env vars, or by defining a `.env` file containing properties in the format of: `FIELD=VALUE`.
 2. Install dependencies
    ```
-   yarn install
+   npm install
    ```
 3. Start the service
    ```
-   yarn run start
+   npm run start
    ```
 
 ## Running via docker
