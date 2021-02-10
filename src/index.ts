@@ -6,6 +6,8 @@ import EventProcessor from "./event_processor";
 import { CameraDetails, CameraId, isMotionEndEvent } from "./types";
 import VideoDownloader from "./video_downloader";
 
+const CONNECTION_RETRY_DELAY_MS = 30 * 1000;
+
 const { CAMERAS, DOWNLOAD_PATH, PREFER_SMART_MOTION, MQTT_HOST, UNIFI_HOST, UNIFI_USER, UNIFI_PASS } = process.env;
 
 const cameraNames = CAMERAS?.split(",").map((camera) => camera.trim()) ?? [];
@@ -16,8 +18,8 @@ if (!UNIFI_HOST || !UNIFI_USER || !UNIFI_PASS) {
   process.exit(1);
 }
 
-const initialize = async () => {
-  const client: Client = mqtt.connect(MQTT_HOST, {
+const getConnection = (): Client => {
+  return mqtt.connect(MQTT_HOST, {
     will: {
       topic: "unifi/protect-downloader/availability",
       payload: "offline",
@@ -25,6 +27,10 @@ const initialize = async () => {
       retain: true,
     },
   });
+};
+
+const initialize = async () => {
+  let client: Client = getConnection();
 
   const api = new Api({
     host: UNIFI_HOST,
@@ -93,6 +99,12 @@ const initialize = async () => {
 
   client.on("error", (error) => {
     console.error(`MQTT error: ${error.message}`);
+    // close the connection and retry after a delay
+    client.end(true);
+
+    setTimeout(() => {
+      client = getConnection();
+    }, CONNECTION_RETRY_DELAY_MS);
   });
 
   client.on("connect", () => {
