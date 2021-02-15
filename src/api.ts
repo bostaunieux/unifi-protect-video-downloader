@@ -3,7 +3,8 @@ import axiosRetry from "axios-retry";
 import https from "https";
 import path from "path";
 import fs from "fs";
-import WebSocket from "ws";
+import promises from "fs/promises";
+import EventStream from "./event_stream";
 import { CameraDetails, MotionEndEvent, Timestamp } from "./types";
 
 interface ApiConfig {
@@ -39,9 +40,6 @@ interface FileAttributes {
   filePath: string;
 }
 
-// ws heartbeat timeout before considering the connection severed, in seconds
-const EVENTS_HEARTBEAT_INTERVAL_SEC = 20;
-
 // interval before we attempt to re-authenticate any requests, in seconds
 const REAUTHENTICATION_INTERVAL_SEC = 3600;
 
@@ -54,8 +52,7 @@ export default class Api {
   private headers?: Record<string, string>;
   private loginExpiry: Timestamp = 0;
   private bootstrap?: BootstrapResponse;
-  private socket?: WebSocket;
-  private subscribers = new Set<(event: Buffer) => void>();
+  private stream?: EventStream;
 
   constructor({ host, username, password, downloadPath }: ApiConfig) {
     this.host = host;
@@ -83,11 +80,10 @@ export default class Api {
     );
 
     await this.connect();
+  }
 
-    // periodically check to confirm we're still connected
-    setInterval(async () => {
-      await this.connect();
-    }, 5000);
+  public terminate() {
+    this.stream?.disconnect();
   }
 
   /**
@@ -102,69 +98,38 @@ export default class Api {
    * @param eventHandler Callback for processing websocket messages
    */
   public addSubscriber(eventHandler: (event: Buffer) => void): void {
-    this.subscribers.add(eventHandler);
+    this.stream?.addSubscriber(eventHandler);
   }
 
   /**
    * Remove all event handler subscriptions
    */
   public clearSubscribers(): void {
-    this.subscribers.clear();
+    this.stream?.clearSubscribers();
   }
 
   private async connect(): Promise<void | Error> {
-    if (this.socket) {
-      return;
-    }
-
     if (!(await this.authenticate())) {
       throw new Error("Unable to subscribe to events; failed fetching auth headers");
     }
-    const webSocketUrl = `wss://${this.host}/proxy/protect/ws/updates?lastUpdateId=${this.bootstrap?.lastUpdateId}`;
 
-    console.debug("Connecting to ws server url: %s", webSocketUrl);
+    if (!this.bootstrap?.lastUpdateId) {
+      throw new Error("Unable to setup eventstream; missing required bootstrap lastUpdateId");
+    }
 
-    this.socket = new WebSocket(webSocketUrl, {
+    if (!this.headers?.["Cookie"]) {
+      throw new Error("Unable to setup eventstream; missing required auth cookie");
+    }
+
+    this.stream = new EventStream({
+      host: this.host,
+      lastUpdateId: this.bootstrap?.lastUpdateId,
       headers: {
         Cookie: this.headers?.["Cookie"],
       },
-      rejectUnauthorized: false,
     });
 
-    let pingTimeout: NodeJS.Timeout;
-
-    const heartbeat = () => {
-      clearTimeout(pingTimeout);
-
-      // Use `WebSocket#terminate()`, which immediately destroys the connection,
-      // instead of `WebSocket#close()`, which waits for the close timer.
-      pingTimeout = setTimeout(() => {
-        this.socket?.terminate();
-      }, EVENTS_HEARTBEAT_INTERVAL_SEC * 1000);
-    };
-
-    this.socket.on("open", () => {
-      console.info("Connected to UnifiOS websocket server for event updates");
-      heartbeat();
-    });
-    this.socket.on("ping", heartbeat);
-    this.socket.on("message", (event: Buffer) => {
-      heartbeat();
-      this.subscribers.forEach((subscriber) => subscriber(event));
-    });
-
-    this.socket.on("close", () => {
-      console.info("WebSocket connection closed");
-      clearTimeout(pingTimeout);
-      this.socket = undefined;
-    });
-
-    this.socket.on("error", (error) => {
-      console.error("WebSocket connection error: %s", error.message);
-      console.error("Websocket connection error: %s", error);
-
-      this.socket?.terminate();
-    });
+    this.stream.connect();
   }
 
   private async authenticate(): Promise<boolean> {
@@ -179,25 +144,38 @@ export default class Api {
     console.info("Requesting new authentication...");
 
     // make an intial request to the unifi os entry page to "borrow" the csrf token it generates
-    const htmlResponse = await this.request.get(`/`);
+    let htmlResponse;
+    try {
+      htmlResponse = await this.request.get(`/`);
+    } catch (error) {
+      console.error("Index request failed: %s", error.message);
+      return false;
+    }
 
     if (htmlResponse?.status !== 200 || !htmlResponse?.headers["x-csrf-token"]) {
       console.log("Unable to get initial CSFR token");
       return false;
     }
 
-    const authResponse = await this.request.post(
-      "/api/auth/login",
-      {
-        username: this.username,
-        password: this.password,
-      },
-      {
-        headers: {
-          "X-CSRF-Token": htmlResponse.headers["x-csrf-token"],
+    let authResponse;
+
+    try {
+      authResponse = await this.request.post(
+        "/api/auth/login",
+        {
+          username: this.username,
+          password: this.password,
         },
-      }
-    );
+        {
+          headers: {
+            "X-CSRF-Token": htmlResponse.headers["x-csrf-token"],
+          },
+        }
+      );
+    } catch (error) {
+      console.error("Login request failed: %s", error.message);
+      return false;
+    }
 
     const csrfToken = authResponse.headers["x-csrf-token"];
     const cookie = authResponse.headers["set-cookie"];
@@ -239,7 +217,7 @@ export default class Api {
   /**
    * Request a video download for the specified camera between the start and end timestamps
    */
-  public async downloadVideo({ camera: id, start, end }: MotionEndEvent): Promise<void> {
+  public async downloadVideo({ camera: id, start, end }: MotionEndEvent): Promise<boolean> {
     if (!(await this.authenticate())) {
       throw new Error("Unable to download video; failed fetching auth headers");
     }
@@ -247,7 +225,7 @@ export default class Api {
     const camera = this.bootstrap?.cameras.find((cam) => cam.id === id);
     if (!camera) {
       console.error("Encountered unknown camera id: %s, unable to download video", id);
-      return;
+      return false;
     }
     const { filePath, fileName } = this.generateFileAttributes(camera.name, start);
     console.info(
@@ -257,13 +235,19 @@ export default class Api {
     );
 
     try {
-      await fs.promises.access(filePath);
+      await promises.access(filePath);
     } catch (e) {
       // directory doesn't exist, create it
-      await fs.promises.mkdir(filePath, { recursive: true });
+      await promises.mkdir(filePath, { recursive: true });
     }
 
-    const response = await this.request.get("/proxy/protect/api/video/export", {
+    const writeStream = fs.createWriteStream(`${filePath}/${fileName}`);
+    const result: Promise<true> = new Promise((resolve, reject) => {
+      writeStream.on("finish", () => resolve(true));
+      writeStream.on("error", reject);
+    });
+
+    const downloadStream = await this.request.get("/proxy/protect/api/video/export", {
       headers: this.headers,
       responseType: "stream",
       params: {
@@ -275,14 +259,9 @@ export default class Api {
       },
     });
 
-    const writer = fs.createWriteStream(`${filePath}/${fileName}`);
+    downloadStream.data.pipe(writeStream);
 
-    response.data.pipe(writer);
-
-    return new Promise((resolve, reject) => {
-      writer.on("finish", resolve);
-      writer.on("error", reject);
-    });
+    return result;
   }
 
   private generateFileAttributes(cameraName: string, timestamp: number): FileAttributes {

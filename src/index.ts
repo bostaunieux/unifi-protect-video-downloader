@@ -1,5 +1,4 @@
 import "log-timestamp";
-
 import Api from "./api";
 import Controller from "./controller";
 
@@ -21,18 +20,32 @@ if (!host || !username || !password || !mqttHost) {
   process.exit(1);
 }
 
-const api = new Api({
-  host,
-  username,
-  password,
-  downloadPath,
-});
+const init = async () => {
+  const api = new Api({
+    host,
+    username,
+    password,
+    downloadPath,
+  });
 
-try {
-  const controller = new Controller({ api, cameraNames, mqttHost, enableSmartMotion });
-  controller.initialize();
-  controller.subscribe();
-} catch (error) {
-  console.error("Failed initialization: %s", error);
-  process.exit(1);
-}
+  try {
+    const controller = new Controller({ api, cameraNames, mqttHost, enableSmartMotion });
+    await controller.initialize();
+    controller.subscribe();
+  } catch (error) {
+    console.error("Failed initialization: %s", error);
+    process.exit(1);
+  }
+
+  process.on("exit", function () {
+    console.info("Cleaning up connections...");
+    api.terminate();
+  });
+
+  // catch ctrl+c event and exit normally
+  process.on("SIGINT", function () {
+    process.exit(2);
+  });
+};
+
+init();
