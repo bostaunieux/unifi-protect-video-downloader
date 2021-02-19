@@ -1,6 +1,6 @@
 import WebSocket, { OPEN } from "ws";
 
-interface SocketProps {
+interface EventStreamProps {
   host: string;
   headers: Record<string, string>;
   lastUpdateId: string;
@@ -19,7 +19,7 @@ export default class EventStream {
   private socket?: WebSocket;
   private pingTimeout?: NodeJS.Timeout;
 
-  constructor({ host, headers, lastUpdateId }: SocketProps) {
+  constructor({ host, headers, lastUpdateId }: EventStreamProps) {
     this.host = host;
     this.headers = headers;
     this.lastUpdateId = lastUpdateId;
