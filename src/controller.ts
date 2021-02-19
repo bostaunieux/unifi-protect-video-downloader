@@ -62,36 +62,7 @@ export default class Controller {
    * Subscribe to motion events
    */
   public subscribe = (): void => {
-    this.api.addSubscriber((message) => {
-      const event = this.eventProcessor.parseMessage(message);
-      const camera = event?.camera && this.camerasById.get(event.camera);
-
-      if (!event || !camera) {
-        return;
-      }
-
-      if (isMotionEndEvent(event)) {
-        const hasSmartDetect = camera.featureFlags.hasSmartDetect;
-        const isSmartEvent = event.type === "smart";
-
-        if (
-          !hasSmartDetect ||
-          (hasSmartDetect && ((this.enableSmartMotion && isSmartEvent) || (!this.enableSmartMotion && !isSmartEvent)))
-        ) {
-          console.info("Processing event: %s", event);
-          this.downloader.queueDownload(event);
-        }
-      }
-
-      this.client?.publish(
-        `unifi/protect-downloader/${camera.id}/motion`,
-        JSON.stringify({ ...event, camera: { id: camera.id, name: camera.name } }),
-        {
-          qos: 1,
-          retain: true,
-        }
-      );
-    });
+    this.api.addSubscriber(this.onMessage);
 
     this.client?.on("error", async (error) => {
       console.error("Encountered MQTT error: %s; will reconnect after a delay", error);
@@ -117,5 +88,36 @@ export default class Controller {
       },
       reconnectPeriod: CONNECTION_RETRY_DELAY_SEC * 1000,
     });
+  };
+
+  private onMessage = (message: Buffer) => {
+    const event = this.eventProcessor.parseMessage(message);
+    const camera = event?.camera && this.camerasById.get(event.camera);
+
+    if (!event || !camera) {
+      return;
+    }
+
+    if (isMotionEndEvent(event)) {
+      const hasSmartDetect = camera.featureFlags.hasSmartDetect;
+      const isSmartEvent = event.type === "smart";
+
+      if (
+        !hasSmartDetect ||
+        (hasSmartDetect && ((this.enableSmartMotion && isSmartEvent) || (!this.enableSmartMotion && !isSmartEvent)))
+      ) {
+        console.info("Processing event: %s", event);
+        this.downloader.queueDownload(event);
+      }
+    }
+
+    this.client?.publish(
+      `unifi/protect-downloader/${camera.id}/motion`,
+      JSON.stringify({ ...event, camera: { id: camera.id, name: camera.name } }),
+      {
+        qos: 1,
+        retain: true,
+      }
+    );
   };
 }
