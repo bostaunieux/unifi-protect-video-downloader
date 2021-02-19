@@ -1,13 +1,28 @@
 import { Scope } from "nock";
 import { PassThrough } from "stream";
+import Api from "../src/api";
 
 const AUTH_COOKIE = "test-cookie";
 const AUTH_TOKEN = "test-token";
 export const USERNAME = "username";
 export const PASSWORD = "password";
+
 export const TEST_CAMERA_1 = {
   id: "123456",
   name: "Garage",
+  mac: "XX:XX:XX:XX",
+  host: "192.168.1.1",
+  type: "TestCam",
+  featureFlags: { hasSmartDetect: true },
+};
+
+export const TEST_CAMERA_2 = {
+  id: "654321",
+  name: "Balcony",
+  mac: "XX:XX:XX:XX",
+  host: "192.168.1.1",
+  type: "TestCam",
+  featureFlags: { hasSmartDetect: false },
 };
 
 export const mockIndex = (scope: Scope): Scope =>
@@ -57,3 +72,5 @@ export const mockSuccess = (scope: Scope): Scope => {
 
   return scope;
 };
+
+export const stubApi = () => new Api({ host: "", username: "", password: "", downloadPath: "" });
