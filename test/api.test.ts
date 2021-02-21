@@ -1,7 +1,6 @@
 import nock, { Scope } from "nock";
 import fs, { WriteStream } from "fs";
 import { Writable } from "stream";
-import { mocked } from "ts-jest/utils";
 import Api from "../src/api";
 import EventStream from "../src/event_stream";
 import {
@@ -18,7 +17,7 @@ jest.mock("fs");
 jest.mock("fs/promises");
 jest.mock("../src/event_stream");
 
-const fsMock = mocked(fs);
+const fsMock = fs as jest.Mocked<typeof fs>;
 const EventStreamMock = EventStream as jest.MockedClass<typeof EventStream>;
 
 const TEST_HOST = "localhost";
