@@ -82,7 +82,7 @@ export default class Api {
     await this.connect();
   }
 
-  public terminate() {
+  public terminate(): void {
     this.stream?.disconnect();
   }
 

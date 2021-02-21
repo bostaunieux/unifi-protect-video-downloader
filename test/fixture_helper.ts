@@ -73,4 +73,4 @@ export const mockSuccess = (scope: Scope): Scope => {
   return scope;
 };
 
-export const stubApi = () => new Api({ host: "", username: "", password: "", downloadPath: "" });
+export const stubApi = (): Api => new Api({ host: "", username: "", password: "", downloadPath: "" });

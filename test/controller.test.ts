@@ -1,4 +1,4 @@
-import mqtt, { Client } from "mqtt";
+import mqtt, { Client, IStream } from "mqtt";
 import Api from "../src/api";
 import VideoDownloader from "../src/video_downloader";
 import EventProcessor from "../src/event_processor";
@@ -32,8 +32,8 @@ describe("Controller", () => {
     ApiMock.prototype.initialize.mockResolvedValue();
     ApiMock.prototype.getCameras.mockReturnValue([TEST_CAMERA_1, TEST_CAMERA_2]);
 
-    const IStreamMock: any = jest.fn();
-    mqttMock.connect.mockReturnValue(new ClientMock(() => new IStreamMock(), {}));
+    const iStreamMock: IStream = (jest.fn() as unknown) as IStream;
+    mqttMock.connect.mockReturnValue(new ClientMock(() => iStreamMock, {}));
 
     controller = new Controller({ api: stubApi(), cameraNames: [], mqttHost: TEST_HOST, enableSmartMotion: true });
   });
@@ -59,7 +59,7 @@ describe("Controller", () => {
     controller.subscribe();
 
     expect(ApiMock.mock.instances[0].addSubscriber).toHaveBeenCalledTimes(1);
-    // @ts-ignore access private class method
+    // @ts-expect-error access private class method
     expect(ApiMock.mock.instances[0].addSubscriber).toHaveBeenCalledWith(controller.onMessage);
     expect(ClientMock.mock.instances[0].on).toHaveBeenCalledWith("connect", expect.any(Function));
     expect(ClientMock.mock.instances[0].on).toHaveBeenCalledWith("error", expect.any(Function));
@@ -70,7 +70,7 @@ describe("Controller", () => {
       EventProcessorMock.prototype.parseMessage.mockReturnValue(null);
 
       await controller.initialize();
-      // @ts-ignore access private class method
+      // @ts-expect-error access private class method
       controller.onMessage();
 
       expect(VideoDownloaderMock.mock.instances[0].queueDownload).not.toHaveBeenCalled();
@@ -85,7 +85,7 @@ describe("Controller", () => {
       });
 
       await controller.initialize();
-      // @ts-ignore access private class method
+      // @ts-expect-error access private class method
       controller.onMessage();
 
       expect(VideoDownloaderMock.mock.instances[0].queueDownload).not.toHaveBeenCalled();
@@ -100,7 +100,7 @@ describe("Controller", () => {
       });
 
       await controller.initialize();
-      // @ts-ignore access private class method
+      // @ts-expect-error access private class method
       controller.onMessage(Buffer.from("test"));
 
       expect(VideoDownloaderMock.mock.instances[0].queueDownload).not.toHaveBeenCalled();
@@ -121,7 +121,7 @@ describe("Controller", () => {
       EventProcessorMock.prototype.parseMessage.mockReturnValue(event);
 
       await controller.initialize();
-      // @ts-ignore access private class method
+      // @ts-expect-error access private class method
       controller.onMessage(Buffer.from("test"));
 
       expect(VideoDownloaderMock.mock.instances[0].queueDownload).toHaveBeenCalledWith(event);

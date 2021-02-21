@@ -14,7 +14,7 @@ export default class VideoDownloader {
     this.queue.on("error", this.onError);
   }
 
-  onError(error: DownloadError) {
+  onError(error: DownloadError): void {
     if (!(error instanceof DownloadError)) {
       return;
     }
@@ -26,7 +26,7 @@ export default class VideoDownloader {
     }, this.retryIntervalMs);
   }
 
-  async processEvent(event: MotionEndEvent, retries: number) {
+  async processEvent(event: MotionEndEvent, retries: number): Promise<void> {
     try {
       await this.api.downloadVideo(event);
     } catch (error) {
@@ -38,7 +38,7 @@ export default class VideoDownloader {
     }
   }
 
-  public async queueDownload(event: MotionEndEvent, retries = this.maxRetries) {
+  public async queueDownload(event: MotionEndEvent, retries = this.maxRetries): Promise<void> {
     if (retries <= 0) {
       console.info("Retries exhausted, not queuing download for event: %s", event);
       return;
