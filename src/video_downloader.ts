@@ -1,43 +1,51 @@
-import { MotionEndEvent } from "./types";
+import { SequentialTaskQueue } from "sequential-task-queue";
+import { DownloadError, MotionEndEvent } from "./types";
 import Api from "./api";
-
-interface QueuedDownload {
-  retries: number;
-  event: MotionEndEvent;
-}
-
-const DOWNLOAD_INTERVAL_SEC = 60;
 
 export default class VideoDownloader {
   api: Api;
-  timer: NodeJS.Timeout;
-  queuedDownloads: Array<QueuedDownload> = [];
+  queue = new SequentialTaskQueue();
+  maxRetries = 5;
+  retryIntervalMs = 60 * 1000;
 
   constructor(api: Api) {
     this.api = api;
-    this.timer = setInterval(() => this.processEvent(), DOWNLOAD_INTERVAL_SEC * 1000);
+
+    this.queue.on("error", this.onError);
   }
 
-  private async processEvent() {
-    const { event, retries } = this.queuedDownloads.pop() ?? {};
-    if (event && retries) {
-      try {
-        await this.api.downloadVideo(event);
-      } catch (error) {
-        console.warn("Download attempt failed for event: %s, retries: %s", event, retries);
-        if (error?.response) {
-          console.warn("Error details - status: %s, data: %s", error.response.status, error.response.data);
-        }
+  onError(error: DownloadError) {
+    if (!(error instanceof DownloadError)) {
+      return;
+    }
+    const { event, retries } = error;
 
-        if (retries > 0) {
-          this.queueDownload(event, retries - 1);
-        }
+    console.info("Encountered queue error: %s", error);
+    setTimeout(() => {
+      this.queueDownload(event, retries - 1);
+    }, this.retryIntervalMs);
+  }
+
+  async processEvent(event: MotionEndEvent, retries: number) {
+    try {
+      await this.api.downloadVideo(event);
+    } catch (error) {
+      console.warn("Download attempt failed for event: %s, retries: %s", event, retries);
+      if (error?.response) {
+        console.warn("Error details - status: %s, data: %s", error.response.status, error.response.data);
       }
+      throw new DownloadError(event, retries);
     }
   }
 
-  public async queueDownload(event: MotionEndEvent, retries = 5): Promise<void> {
-    console.info("Queueing motion event: %s", event);
-    this.queuedDownloads.unshift({ event, retries });
+  public async queueDownload(event: MotionEndEvent, retries = this.maxRetries) {
+    if (retries <= 0) {
+      console.info("Retries exhausted, not queuing download for event: %s", event);
+      return;
+    }
+
+    console.info("Queueing motion event: %s, retries: %s", event, retries);
+
+    await this.queue.push(this.processEvent, { args: [event, retries] });
   }
 }

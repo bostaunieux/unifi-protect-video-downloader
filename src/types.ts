@@ -38,3 +38,15 @@ export const isMotionEndEvent = (event: MotionStartEvent | MotionEndEvent): even
 export type CameraId = string;
 export type EventId = string;
 export type Timestamp = number;
+
+export class DownloadError extends Error {
+  event: MotionEndEvent;
+  retries: number;
+
+  constructor(event: MotionEndEvent, retries: number) {
+    super("Failed downloading motion event");
+    this.name = "DownloadError";
+    this.event = event;
+    this.retries = retries;
+  }
+}
