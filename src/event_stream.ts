@@ -1,4 +1,4 @@
-import WebSocket, { OPEN } from "ws";
+import WebSocket, { CONNECTING, OPEN } from "ws";
 
 interface EventStreamProps {
   host: string;
@@ -7,8 +7,8 @@ interface EventStreamProps {
 }
 
 // ws heartbeat timeout before considering the connection severed, in seconds
-const EVENTS_HEARTBEAT_INTERVAL_MS = 20 * 1000;
-const EVENTS_RECONNECT_INTERNAL_MS = 5 * 1000;
+export const EVENTS_HEARTBEAT_INTERVAL_MS = 20 * 1000;
+export const EVENTS_RECONNECT_INTERNAL_MS = 5 * 1000;
 
 export default class EventStream {
   public connected = false;
@@ -25,9 +25,9 @@ export default class EventStream {
     this.lastUpdateId = lastUpdateId;
   }
 
-  public connect(): void {
-    if (this.socket?.readyState === OPEN) {
-      return;
+  public connect(): boolean {
+    if (this.socket?.readyState === OPEN || this.socket?.readyState === CONNECTING) {
+      return true;
     }
 
     this.socket?.terminate();
@@ -41,31 +41,13 @@ export default class EventStream {
       rejectUnauthorized: false,
     });
 
-    this.socket.on("open", () => {
-      console.info("Connected to UnifiOS websocket server for event updates");
-      this.connected = true;
-      this.heartbeat();
-    });
+    this.socket.on("open", this.onOpen);
     this.socket.on("ping", this.heartbeat);
-    this.socket.on("message", (event: Buffer) => {
-      this.heartbeat();
-      this.subscribers.forEach((subscriber) => subscriber(event));
-    });
+    this.socket.on("message", this.onMessage);
+    this.socket.on("close", this.onClose);
+    this.socket.on("error", this.onError);
 
-    this.socket.on("close", () => {
-      console.info("WebSocket connection closed");
-      this.pingTimeout && clearTimeout(this.pingTimeout);
-      this.socket = undefined;
-      this.connected = false;
-
-      this.reconnect();
-    });
-
-    this.socket.on("error", (error) => {
-      console.error("Websocket connection error: %s", error);
-
-      this.socket?.terminate();
-    });
+    return true;
   }
 
   /**
@@ -84,15 +66,19 @@ export default class EventStream {
     this.subscribers.clear();
   }
 
-  public disconnect() {
+  public disconnect(): void {
     this.socket?.terminate();
   }
 
-  private async reconnect() {
-    while (!this.connected) {
-      // wait before attempting to conect
-      await new Promise((resolve) => setTimeout(resolve, EVENTS_RECONNECT_INTERNAL_MS));
-      this.connect();
+  private reconnect() {
+    if (this.connected) {
+      return;
+    }
+
+    if (!this.connect()) {
+      setTimeout(() => {
+        this.reconnect();
+      }, EVENTS_RECONNECT_INTERNAL_MS);
     }
   }
 
@@ -104,5 +90,31 @@ export default class EventStream {
     this.pingTimeout = setTimeout(() => {
       this.socket?.terminate();
     }, EVENTS_HEARTBEAT_INTERVAL_MS);
+  }
+
+  private onOpen() {
+    console.info("Connected to UnifiOS websocket server for event updates");
+    this.connected = true;
+    this.heartbeat();
+  }
+
+  private onMessage(event: Buffer) {
+    this.heartbeat();
+    this.subscribers.forEach((subscriber) => subscriber(event));
+  }
+
+  private onClose() {
+    console.info("WebSocket connection closed");
+    this.pingTimeout && clearTimeout(this.pingTimeout);
+    this.socket = undefined;
+    this.connected = false;
+
+    this.reconnect();
+  }
+
+  private onError(error: Error) {
+    console.error("Websocket connection error: %s", error);
+
+    this.socket?.terminate();
   }
 }
