@@ -1,5 +1,7 @@
 # unifi-protect-video-downloader
 
+![Build status](https://github.com/bostaunieux/unifi-protect-video-downloader/actions/workflows/node-ci.yml/badge.svg)
+
 This will listen for motion events triggered from a UniFi NVR device running UnifiOS. This has been tested on a Cloud Key Gen2+, but should work on any other device running the same OS. When a motion event is triggered by a camera, it will download a video for the duration of the recording.
 
 ## Output
@@ -7,15 +9,19 @@ This will listen for motion events triggered from a UniFi NVR device running Uni
 When a start motion event is detected, this service will wait for the corresponding end motion event. At that point, a video export will be requested from the NVR and written within the configured download directory.
 
 Download files will written in separate directories following the format:
+
 ```
 /CAMERA_NAME/YYYY/MM/DD/YYYY-MM-DD_HH.MM.SS_TIMESTAMP.mp4
 ```
+
 e.g.
+
 ```
 /Front Door/2021/01/15/2021-02-15_12.05.30_1610712330.mp4
 ```
 
 ## Running via command line
+
 1. Configure required parameters for the service, either using env vars, or by defining a `.env` file containing properties in the format of: `FIELD=VALUE`.
 2. Install dependencies
    ```
@@ -31,11 +37,10 @@ e.g.
 1. Mount a `/downloads` directory where videos will be downloaded
 2. Define all required fields via ENV vars
 
-
 ## Configuration
 
 | Field               | Required | Description                                                                                               | Default            |
-|---------------------|----------|-----------------------------------------------------------------------------------------------------------|--------------------|
+| ------------------- | -------- | --------------------------------------------------------------------------------------------------------- | ------------------ |
 | UNIFI_HOST          | Yes      | UniFi NVR running unifi protect (e.g. `192.168.1.10`)                                                     | N/A                |
 | UNIFI_USER          | Yes      | Username for unifi protect server (see directions below)                                                  | N/A                |
 | UNIFI_PASS          | Yes      | Password for unifi protect server (see directions below)                                                  | N/A                |
@@ -43,6 +48,7 @@ e.g.
 | CAMERAS             | No       | Comma-separated list of camera names to record (e.g. `Front Door, Garage`)                                | Record all cameras |
 | DOWNLOAD_PATH       | No       | Root file path where downloads will be placed                                                             | `/downloads`       |
 | PREFER_SMART_MOTION | No       | For cameras supporting smart detection, record smart motion events instead of basic optical motion events | true               |
+
 ## User account creation
 
 1. Login to protect web ui and navigate to users section
@@ -50,7 +56,6 @@ e.g.
    1. For Invite Type select `Local Access Only`
    2. For Roles, select `View Only`
 3. Enter a username and password to use in docker setup
-
 
 ## Acknowledgements
 
