@@ -41,11 +41,11 @@ export default class EventStream {
       rejectUnauthorized: false,
     });
 
-    this.socket.on("open", this.onOpen);
-    this.socket.on("ping", this.heartbeat);
-    this.socket.on("message", this.onMessage);
-    this.socket.on("close", this.onClose);
-    this.socket.on("error", this.onError);
+    this.socket.on("open", this.onOpen.bind(this));
+    this.socket.on("ping", this.heartbeat.bind(this));
+    this.socket.on("message", this.onMessage.bind(this));
+    this.socket.on("close", this.onClose.bind(this));
+    this.socket.on("error", this.onError.bind(this));
 
     return true;
   }

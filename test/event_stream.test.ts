@@ -23,16 +23,11 @@ describe("EventStream", () => {
       eventStream.connect();
 
       expect(MockWebSocket.mock.instances[0].on).toHaveBeenCalledTimes(5);
-      // @ts-expect-error access private method
-      expect(MockWebSocket.mock.instances[0].on).toHaveBeenCalledWith("open", eventStream.onOpen);
-      // @ts-expect-error access private method
-      expect(MockWebSocket.mock.instances[0].on).toHaveBeenCalledWith("ping", eventStream.heartbeat);
-      // @ts-expect-error access private method
-      expect(MockWebSocket.mock.instances[0].on).toHaveBeenCalledWith("message", eventStream.onMessage);
-      // @ts-expect-error access private method
-      expect(MockWebSocket.mock.instances[0].on).toHaveBeenCalledWith("close", eventStream.onClose);
-      // @ts-expect-error access private method
-      expect(MockWebSocket.mock.instances[0].on).toHaveBeenCalledWith("error", eventStream.onError);
+      expect(MockWebSocket.mock.instances[0].on).toHaveBeenCalledWith("open", expect.any(Function));
+      expect(MockWebSocket.mock.instances[0].on).toHaveBeenCalledWith("ping", expect.any(Function));
+      expect(MockWebSocket.mock.instances[0].on).toHaveBeenCalledWith("message", expect.any(Function));
+      expect(MockWebSocket.mock.instances[0].on).toHaveBeenCalledWith("close", expect.any(Function));
+      expect(MockWebSocket.mock.instances[0].on).toHaveBeenCalledWith("error", expect.any(Function));
     });
 
     it("should not connect if already connected", () => {
