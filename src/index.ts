@@ -15,7 +15,7 @@ const {
 const cameraNames = CAMERAS?.split(",").map((camera) => camera.trim()) ?? [];
 const enableSmartMotion = PREFER_SMART_MOTION === "true";
 
-if (!host || !username || !password || !mqttHost) {
+if (!host || !username || !password) {
   console.error("Unable to initialize; missing required configuration");
   process.exit(1);
 }

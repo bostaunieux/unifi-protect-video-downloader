@@ -7,8 +7,8 @@ import VideoDownloader from "./video_downloader";
 interface ControllerProps {
   api: Api;
   cameraNames: Array<string>;
-  mqttHost: string;
   enableSmartMotion: boolean;
+  mqttHost?: string;
 }
 
 const CONNECTION_RETRY_DELAY_SEC = 30;
@@ -16,12 +16,12 @@ const CONNECTION_RETRY_DELAY_SEC = 30;
 export default class Controller {
   private api: Api;
   private cameraNames: Array<string>;
-  private mqttHost: string;
   private enableSmartMotion: boolean;
   private eventProcessor: EventProcessor;
   private downloader: VideoDownloader;
-  private client?: Client;
   private camerasById: Map<CameraId, CameraDetails>;
+  private client?: Client;
+  private mqttHost?: string;
 
   constructor({ api, cameraNames, mqttHost, enableSmartMotion }: ControllerProps) {
     this.api = api;
@@ -51,17 +51,17 @@ export default class Controller {
     if (this.camerasById.size === 0) {
       throw new Error("Unable to find cameras");
     }
-
-    console.info(
-      "Setting up motion event subscription for cameras: %s",
-      targetCameras.map((cam) => cam.name)
-    );
   };
 
   /**
    * Subscribe to motion events
    */
   public subscribe = (): void => {
+    console.info(
+      "Subscribing to motion events for cameras: %s",
+      Array.from(this.camerasById).map(([, { name }]) => name)
+    );
+
     this.api.addSubscriber(this.onMessage);
 
     this.client?.on("error", async (error) => {
@@ -78,7 +78,11 @@ export default class Controller {
     });
   };
 
-  private getConnection = (): Client => {
+  private getConnection = (): Client | undefined => {
+    if (!this.mqttHost) {
+      return;
+    }
+
     return mqtt.connect(this.mqttHost, {
       will: {
         topic: "unifi/protect-downloader/availability",
