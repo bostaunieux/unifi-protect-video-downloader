@@ -39,24 +39,32 @@ interface DecodedEvent {
 
 // number of bytes in a packet within the message
 const PACKET_BYTE_SIZE = 8;
+
 // offset within the message buffer where the payload size is stored
 const PACKET_PAYLOAD_SIZE_OFFSET = 4;
 
+// timeout after which start motion events will be ignored
+const START_MOTION_EVENT_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
+/**
+ * Utility class for parsing and formatting raw motion event message buffers from
+ * the event stream.
+ */
 export default class EventProcessor {
   // event id -> motion start details
-  smartMotionEvents = new Map<EventId, MotionStartEvent>();
+  private smartMotionEvents = new Map<EventId, MotionStartEvent>();
   // camera id -> motion start timestamp
-  motionEvents = new Map<CameraId, Timestamp>();
+  private motionEvents = new Map<CameraId, Timestamp>();
 
   /**
    * Parse the incoming message from the NVR into a consumable format. This will ignore
-   * the majority of messages it cares about and focus solely on the subset having to do
+   * the majority of messages received and focus solely on the subset having to do
    * with motion events from cameras. When either a start motion event or start smart
    * motion event is received, it will be queued until the corresponding end event is
-   * received. At this time, the full motion event will be returned
+   * received. At this time, the full motion event will be returned.
    *
    * TODO: return a StartMotionEvent so clients can be notified immediately when motion
-   * starts. Also differentiate smart vs dumb motion events.
+   * starts.
    *
    * @param message {Buffer} Message buffer for NVR activity event
    */
@@ -83,7 +91,7 @@ export default class EventProcessor {
         // register a delayed handler to clear the event from the queue
         setTimeout(() => {
           this.smartMotionEvents.delete(id);
-        }, 10 * 60 * 1000);
+        }, START_MOTION_EVENT_TIMEOUT_MS);
 
         return motionStartEvent;
       }

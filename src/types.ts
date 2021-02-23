@@ -1,37 +1,43 @@
 export type MotionType = "smart" | "basic";
 
 export interface MotionStartEvent {
-  // camera id
+  /** camera id */
   camera: CameraId;
-  // event start timestamp
+  /** event start timestamp */
   start: Timestamp;
+  /** is this smart or basic motion event */
   type?: MotionType;
 }
 
 export interface MotionEndEvent extends MotionStartEvent {
-  // event end timestamp
+  /** event end timestamp */
   end: Timestamp;
 }
 
 interface FeatureFlags {
+  /** does this camera support smart motion events */
   hasSmartDetect: boolean;
 }
 
 export interface CameraDetails {
-  // unique id
+  /** unique id */
   id: CameraId;
-  // display friently camera name, e.g. Front Door
+  /** display friendly camera name, e.g. Front Door */
   name: string;
-  // camera mac address
+  /** camera mac address */
   mac: string;
-  // camera ip address
+  /** camera ip address */
   host: string;
-  // camera type, e.g. UVC G3 Instant
+  /** camera type, e.g. UVC G3 Instant  */
   type: string;
-  // camera feature flags
+  /** camera feature flags */
   featureFlags: FeatureFlags;
 }
 
+/**
+ * Predicate for checking if the provided event a complete motion end event
+ * @param event
+ */
 export const isMotionEndEvent = (event: MotionStartEvent | MotionEndEvent): event is MotionEndEvent =>
   (event as MotionEndEvent)?.end !== undefined;
 
@@ -39,6 +45,9 @@ export type CameraId = string;
 export type EventId = string;
 export type Timestamp = number;
 
+/**
+ * Error class encapsulating details of when a download attempt fails
+ */
 export class DownloadError extends Error {
   event: MotionEndEvent;
   retries: number;

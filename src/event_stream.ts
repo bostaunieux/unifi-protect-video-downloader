@@ -1,17 +1,28 @@
 import WebSocket, { CONNECTING, OPEN } from "ws";
 
 interface EventStreamProps {
+  /** NVR host */
   host: string;
+  /** Request headers for connecting to NVR */
   headers: Record<string, string>;
+  /** Event stream last received event id */
   lastUpdateId: string;
 }
 
-// ws heartbeat timeout before considering the connection severed, in seconds
-export const EVENTS_HEARTBEAT_INTERVAL_MS = 20 * 1000;
-export const EVENTS_RECONNECT_INTERNAL_MS = 5 * 1000;
+// ws heartbeat timeout before considering the connection severed
+export const EVENTS_HEARTBEAT_INTERVAL_MS = 20 * 1000; // 20 seconds
 
+// time to wait before attempting to reconnect to the websocket server
+export const EVENTS_RECONNECT_INTERNAL_MS = 5 * 1000; // 5 seconds
+
+/**
+ * Class for managing a connection to the NVR's websocket server. This real-time event stream
+ * is shared across all services running on the NVR, though we will only focus on events
+ * coming from the Unifi Protect service.
+ */
 export default class EventStream {
   public connected = false;
+  private shouldReconnect = false;
   private host: string;
   private headers: Record<string, string>;
   private lastUpdateId: string;
@@ -25,7 +36,11 @@ export default class EventStream {
     this.lastUpdateId = lastUpdateId;
   }
 
+  /**
+   * Attempt to connect to the websocket server
+   */
   public connect(): boolean {
+    // guard against repeated calls to connect when already connected
     if (this.socket?.readyState === OPEN || this.socket?.readyState === CONNECTING) {
       return true;
     }
@@ -52,6 +67,7 @@ export default class EventStream {
 
   /**
    * Add an event handler for websocket message events
+   *
    * @param eventHandler Callback for processing websocket messages
    */
   public addSubscriber(eventHandler: (event: Buffer) => void): void {
@@ -66,12 +82,16 @@ export default class EventStream {
     this.subscribers.clear();
   }
 
+  /**
+   * Disconnect from the websocket server and prevent any reconnect attempts
+   */
   public disconnect(): void {
+    this.shouldReconnect = false;
     this.socket?.terminate();
   }
 
   private reconnect() {
-    if (this.connected) {
+    if (this.connected || !this.shouldReconnect) {
       return;
     }
 
@@ -95,6 +115,7 @@ export default class EventStream {
   private onOpen() {
     console.info("Connected to UnifiOS websocket server for event updates");
     this.connected = true;
+    this.shouldReconnect = true;
     this.heartbeat();
   }
 
@@ -115,6 +136,7 @@ export default class EventStream {
   private onError(error: Error) {
     console.error("Websocket connection error: %s", error);
 
+    // terminate the connect; this will trigger a reconnect attempt
     this.socket?.terminate();
   }
 }

@@ -7,22 +7,29 @@ import promises from "fs/promises";
 import EventStream from "./event_stream";
 import { CameraDetails, MotionEndEvent, Timestamp } from "./types";
 
-interface ApiConfig {
+interface ApiProps {
+  /** Unifi NVR hostname */
   host: string;
+  /** Unifi NVR account username */
   username: string;
+  /** Unifi NVR account password */
   password: string;
+  /** Absolute path acting as the base path for video downloads */
   downloadPath: string;
 }
 
 interface NvrData {
-  // mac address
+  /** mac address */
   mac: string;
-  // ip address
+  /** ip address */
   host: string;
-  // nvr name, e.g. Home
+  /** NVR name, e.g. Home */
   name: string;
+  /** NVR OS version */
   version: string;
+  /** NVR firmware version */
   firmwareVersion: string;
+  /** Seconds? of uptime for the NVR server */
   uptime: number;
   lastSeen: number;
   // hardware type
@@ -30,8 +37,11 @@ interface NvrData {
 }
 
 interface BootstrapResponse {
+  /** Cameras configured with the NVR */
   cameras: Array<CameraDetails>;
+  /** Event stream last received event id */
   lastUpdateId: string;
+  /** NVR details */
   nvr: NvrData;
 }
 
@@ -41,8 +51,12 @@ interface FileAttributes {
 }
 
 // interval before we attempt to re-authenticate any requests, in seconds
-const REAUTHENTICATION_INTERVAL_SEC = 3600;
+const REAUTHENTICATION_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
+/**
+ * Api for interacting with the Unifi Protect NVR. Allows for camera discovery and requesting
+ * video downloads for specific cameras.
+ */
 export default class Api {
   private host: string;
   private username: string;
@@ -54,7 +68,7 @@ export default class Api {
   private bootstrap?: BootstrapResponse;
   private stream?: EventStream;
 
-  constructor({ host, username, password, downloadPath }: ApiConfig) {
+  constructor({ host, username, password, downloadPath }: ApiProps) {
     this.host = host;
     this.username = username;
     this.password = password;
@@ -82,12 +96,15 @@ export default class Api {
     await this.connect();
   }
 
+  /**
+   * Disconnect from the websocket event stream
+   */
   public terminate(): void {
     this.stream?.disconnect();
   }
 
   /**
-   * Get all available cameras configured in the nvr
+   * Get all available cameras configured in the NVR
    */
   public getCameras(): Array<CameraDetails> {
     return this.bootstrap?.cameras ?? [];
@@ -106,6 +123,56 @@ export default class Api {
    */
   public clearSubscribers(): void {
     this.stream?.clearSubscribers();
+  }
+
+  /**
+   * Request a video download for the specified camera between the start and end timestamps
+   */
+  public async downloadVideo({ camera: id, start, end }: MotionEndEvent): Promise<boolean> {
+    if (!(await this.authenticate())) {
+      throw new Error("Unable to download video; failed fetching auth headers");
+    }
+
+    const camera = this.bootstrap?.cameras.find((cam) => cam.id === id);
+    if (!camera) {
+      console.error("Encountered unknown camera id: %s, unable to download video", id);
+      return false;
+    }
+    const { filePath, fileName } = this.generateFileAttributes(camera.name, start);
+    console.info(
+      "Downloading video with length: %s seconds, to file path: %s",
+      Math.round((end - start) / 1000),
+      filePath
+    );
+
+    try {
+      await promises.access(filePath);
+    } catch (e) {
+      // directory doesn't exist, create it
+      await promises.mkdir(filePath, { recursive: true });
+    }
+
+    const writeStream = fs.createWriteStream(`${filePath}/${fileName}`);
+    const result: Promise<true> = new Promise((resolve, reject) => {
+      writeStream.on("finish", () => resolve(true));
+      writeStream.on("error", reject);
+    });
+
+    const downloadStream = await this.request.get("/proxy/protect/api/video/export", {
+      headers: this.headers,
+      responseType: "stream",
+      params: {
+        start,
+        end,
+        camera: camera.id,
+        filename: fileName,
+        channel: 0,
+      },
+    });
+
+    downloadStream.data.pipe(writeStream);
+
+    return result;
   }
 
   private async connect(): Promise<void | Error> {
@@ -191,7 +258,7 @@ export default class Api {
       "X-CSRF-Token": csrfToken,
     };
 
-    this.loginExpiry = now + REAUTHENTICATION_INTERVAL_SEC * 1000;
+    this.loginExpiry = now + REAUTHENTICATION_INTERVAL_MS;
 
     return true;
   }
@@ -212,56 +279,6 @@ export default class Api {
     this.bootstrap = response.data;
 
     return response.data;
-  }
-
-  /**
-   * Request a video download for the specified camera between the start and end timestamps
-   */
-  public async downloadVideo({ camera: id, start, end }: MotionEndEvent): Promise<boolean> {
-    if (!(await this.authenticate())) {
-      throw new Error("Unable to download video; failed fetching auth headers");
-    }
-
-    const camera = this.bootstrap?.cameras.find((cam) => cam.id === id);
-    if (!camera) {
-      console.error("Encountered unknown camera id: %s, unable to download video", id);
-      return false;
-    }
-    const { filePath, fileName } = this.generateFileAttributes(camera.name, start);
-    console.info(
-      "Downloading video with length: %s seconds, to file path: %s",
-      Math.round((end - start) / 1000),
-      filePath
-    );
-
-    try {
-      await promises.access(filePath);
-    } catch (e) {
-      // directory doesn't exist, create it
-      await promises.mkdir(filePath, { recursive: true });
-    }
-
-    const writeStream = fs.createWriteStream(`${filePath}/${fileName}`);
-    const result: Promise<true> = new Promise((resolve, reject) => {
-      writeStream.on("finish", () => resolve(true));
-      writeStream.on("error", reject);
-    });
-
-    const downloadStream = await this.request.get("/proxy/protect/api/video/export", {
-      headers: this.headers,
-      responseType: "stream",
-      params: {
-        start,
-        end,
-        camera: camera.id,
-        filename: fileName,
-        channel: 0,
-      },
-    });
-
-    downloadStream.data.pipe(writeStream);
-
-    return result;
   }
 
   private generateFileAttributes(cameraName: string, timestamp: number): FileAttributes {

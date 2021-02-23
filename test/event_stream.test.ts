@@ -86,6 +86,9 @@ describe("EventStream", () => {
     it("should attempt to reconnect ", () => {
       const connectSpy = jest.spyOn(eventStream, "connect");
 
+      // @ts-expect-error access private variable
+      eventStream.shouldReconnect = true;
+
       // @ts-expect-error access private method
       eventStream.reconnect();
 
@@ -94,6 +97,9 @@ describe("EventStream", () => {
 
     it("should not reconnect if already connected", () => {
       const connectSpy = jest.spyOn(eventStream, "connect");
+
+      // @ts-expect-error access private variable
+      eventStream.shouldReconnect = true;
 
       eventStream.connected = true;
       // @ts-expect-error access private method
@@ -105,6 +111,8 @@ describe("EventStream", () => {
     it("should reconnect after a delay if initial connect fails ", () => {
       const connectSpy = jest.spyOn(eventStream, "connect").mockReturnValueOnce(false).mockReturnValueOnce(true);
 
+      // @ts-expect-error access private variable
+      eventStream.shouldReconnect = true;
       // @ts-expect-error access private method
       eventStream.reconnect();
 

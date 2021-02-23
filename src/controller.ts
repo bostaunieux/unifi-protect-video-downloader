@@ -5,14 +5,22 @@ import { CameraId, CameraDetails, isMotionEndEvent } from "./types";
 import VideoDownloader from "./video_downloader";
 
 interface ControllerProps {
+  /** Unifi NVR api */
   api: Api;
+  /** Optional camera names to process motion events */
   cameraNames: Array<string>;
+  /** For cameras supporting smart motion events, should smart motion events trigger downloads  */
   enableSmartMotion: boolean;
+  /** Optional MQTT host */
   mqttHost?: string;
 }
 
 const CONNECTION_RETRY_DELAY_SEC = 30;
 
+/**
+ * Main class for managing video downloads. Handles discovering available cameras and
+ * activating the connection to the real-time motion event stream.
+ */
 export default class Controller {
   private api: Api;
   private cameraNames: Array<string>;
@@ -34,7 +42,7 @@ export default class Controller {
   }
 
   /**
-   * Boostrap required connections with the mqtt broker and unifi nvr
+   * Boostrap required connections with the Unifi NVR and optional mqtt broker
    */
   public initialize = async (): Promise<void> => {
     this.client = this.getConnection();
@@ -54,7 +62,8 @@ export default class Controller {
   };
 
   /**
-   * Subscribe to motion events
+   * Subscribe to motion events. Additionally publish an availability topic if an mqtt broker
+   * host is configured.
    */
   public subscribe = (): void => {
     console.info(

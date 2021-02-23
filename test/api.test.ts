@@ -45,7 +45,6 @@ describe("Api", () => {
 
   afterEach(() => {
     nock.restore();
-    // EventStreamMock.mockClear();
   });
 
   it("should initialize successfully", async () => {
