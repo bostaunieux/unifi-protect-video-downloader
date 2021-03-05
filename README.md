@@ -1,6 +1,6 @@
 # unifi-protect-video-downloader
 
-![https://github.com/bostaunieux/unifi-protect-video-downloader/actions/workflows/node-ci.yml](https://github.com/bostaunieux/unifi-protect-video-downloader/actions/workflows/node-ci.yml/badge.svg)
+![https://github.com/bostaunieux/unifi-protect-video-downloader/actions/workflows/node-ci.yml](https://github.com/bostaunieux/unifi-protect-video-downloader/actions/workflows/node-ci.yml/badge.svg) [![codecov](https://codecov.io/gh/bostaunieux/unifi-protect-video-downloader/branch/master/graph/badge.svg?token=YFI0RGEV2S)](https://codecov.io/gh/bostaunieux/unifi-protect-video-downloader)
 
 This will listen for motion events triggered from a UniFi NVR device running UnifiOS. This has been tested on a Cloud Key Gen2+, but should work on any other device running the same OS. When a motion event is triggered by a camera, it will download a video for the duration of the recording.
 
