@@ -7,6 +7,7 @@ const {
   DOWNLOAD_PATH: downloadPath = "/downloads",
   PREFER_SMART_MOTION = "true",
   MQTT_HOST: mqttHost,
+  MQTT_PREFIX: mqttPrefix = "unifi",
   UNIFI_HOST: host,
   UNIFI_USER: username,
   UNIFI_PASS: password,
@@ -29,7 +30,7 @@ const init = async () => {
   });
 
   try {
-    const controller = new Controller({ api, cameraNames, mqttHost, enableSmartMotion });
+    const controller = new Controller({ api, cameraNames, mqttHost, mqttPrefix, enableSmartMotion });
     await controller.initialize();
     controller.subscribe();
   } catch (error) {

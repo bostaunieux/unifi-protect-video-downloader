@@ -35,7 +35,13 @@ describe("Controller", () => {
     const iStreamMock: IStream = (jest.fn() as unknown) as IStream;
     mqttMock.connect.mockReturnValue(new ClientMock(() => iStreamMock, {}));
 
-    controller = new Controller({ api: stubApi(), cameraNames: [], mqttHost: TEST_HOST, enableSmartMotion: true });
+    controller = new Controller({
+      api: stubApi(),
+      cameraNames: [],
+      mqttHost: TEST_HOST,
+      mqttPrefix: "foo",
+      enableSmartMotion: true,
+    });
   });
 
   it("should initialize successfully", async () => {

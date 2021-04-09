@@ -45,6 +45,7 @@ e.g.
 | UNIFI_USER          | Yes      | Username for unifi protect server (see directions below)                                                  | N/A                |
 | UNIFI_PASS          | Yes      | Password for unifi protect server (see directions below)                                                  | N/A                |
 | MQTT_HOST           | No       | Mqtt broker host where availability topic will be posted (e.g. `mqtt://[username:password@]192.168.1.10`) | N/A                |
+| MQTT_PREFIX         | No       | Mqtt topic prefix. Only used if `MQTT_HOST` is set                                                        | `unifi`            |
 | CAMERAS             | No       | Comma-separated list of camera names to record (e.g. `Front Door, Garage`)                                | Record all cameras |
 | DOWNLOAD_PATH       | No       | Root file path where downloads will be placed                                                             | `/downloads`       |
 | PREFER_SMART_MOTION | No       | For cameras supporting smart detection, record smart motion events instead of basic optical motion events | true               |

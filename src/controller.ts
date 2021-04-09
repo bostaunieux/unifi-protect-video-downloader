@@ -1,7 +1,7 @@
 import mqtt, { Client } from "mqtt";
 import Api from "./api";
 import EventProcessor from "./event_processor";
-import { CameraId, CameraDetails, isMotionEndEvent } from "./types";
+import { CameraId, CameraDetails, isMotionEndEvent, MotionEvent } from "./types";
 import VideoDownloader from "./video_downloader";
 
 interface ControllerProps {
@@ -13,6 +13,8 @@ interface ControllerProps {
   enableSmartMotion: boolean;
   /** Optional MQTT host */
   mqttHost?: string;
+  /** Topic prefix to use for mqtt messages */
+  mqttPrefix: string;
 }
 
 const CONNECTION_RETRY_DELAY_SEC = 30;
@@ -30,11 +32,13 @@ export default class Controller {
   private camerasById: Map<CameraId, CameraDetails>;
   private client?: Client;
   private mqttHost?: string;
+  private mqttPrefix: string;
 
-  constructor({ api, cameraNames, mqttHost, enableSmartMotion }: ControllerProps) {
+  constructor({ api, cameraNames, mqttHost, mqttPrefix, enableSmartMotion }: ControllerProps) {
     this.api = api;
     this.cameraNames = cameraNames;
     this.mqttHost = mqttHost;
+    this.mqttPrefix = mqttPrefix;
     this.enableSmartMotion = enableSmartMotion;
     this.eventProcessor = new EventProcessor();
     this.downloader = new VideoDownloader(this.api);
@@ -80,7 +84,7 @@ export default class Controller {
     this.client?.on("connect", () => {
       console.info("Connected to MQTT broker");
 
-      this.client?.publish("unifi/protect-downloader/availability", "online", {
+      this.client?.publish(`${this.mqttPrefix}/protect-downloader/availability`, "online", {
         qos: 1,
         retain: true,
       });
@@ -94,13 +98,23 @@ export default class Controller {
 
     return mqtt.connect(this.mqttHost, {
       will: {
-        topic: "unifi/protect-downloader/availability",
+        topic: `${this.mqttPrefix}/protect-downloader/availability`,
         payload: "offline",
         qos: 1,
         retain: true,
       },
       reconnectPeriod: CONNECTION_RETRY_DELAY_SEC * 1000,
     });
+  };
+
+  private shouldProcessMotionEvent = (event: MotionEvent, camera: CameraDetails) => {
+    const hasSmartDetect = camera.featureFlags.hasSmartDetect;
+    const isSmartEvent = event.type === "smart";
+
+    return (
+      !hasSmartDetect ||
+      (hasSmartDetect && ((this.enableSmartMotion && isSmartEvent) || (!this.enableSmartMotion && !isSmartEvent)))
+    );
   };
 
   private onMessage = (message: Buffer) => {
@@ -111,21 +125,13 @@ export default class Controller {
       return;
     }
 
-    if (isMotionEndEvent(event)) {
-      const hasSmartDetect = camera.featureFlags.hasSmartDetect;
-      const isSmartEvent = event.type === "smart";
-
-      if (
-        !hasSmartDetect ||
-        (hasSmartDetect && ((this.enableSmartMotion && isSmartEvent) || (!this.enableSmartMotion && !isSmartEvent)))
-      ) {
-        console.info("Processing event: %s", event);
-        this.downloader.queueDownload(event);
-      }
+    if (isMotionEndEvent(event) && this.shouldProcessMotionEvent(event, camera)) {
+      console.info("Processing motion event: %s", event);
+      this.downloader.queueDownload(event);
     }
 
     this.client?.publish(
-      `unifi/protect-downloader/${camera.id}/motion`,
+      `${this.mqttPrefix}/protect-downloader/${camera.id}/motion`,
       JSON.stringify({ ...event, camera: { id: camera.id, name: camera.name } }),
       {
         qos: 1,

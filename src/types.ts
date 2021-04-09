@@ -14,6 +14,8 @@ export interface MotionEndEvent extends MotionStartEvent {
   end: Timestamp;
 }
 
+export type MotionEvent = MotionStartEvent | MotionEndEvent;
+
 interface FeatureFlags {
   /** does this camera support smart motion events */
   hasSmartDetect: boolean;
@@ -38,7 +40,7 @@ export interface CameraDetails {
  * Predicate for checking if the provided event a complete motion end event
  * @param event
  */
-export const isMotionEndEvent = (event: MotionStartEvent | MotionEndEvent): event is MotionEndEvent =>
+export const isMotionEndEvent = (event: MotionEvent): event is MotionEndEvent =>
   (event as MotionEndEvent)?.end !== undefined;
 
 export type CameraId = string;
