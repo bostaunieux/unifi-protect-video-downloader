@@ -36,7 +36,7 @@ export default class VideoDownloader {
     await this.queue.push(this.processEvent, { args: [event, retries] });
   }
 
-  private async processEvent(event: MotionEndEvent, retries: number): Promise<void> {
+  private processEvent = async (event: MotionEndEvent, retries: number): Promise<void> => {
     try {
       await this.api.downloadVideo(event);
     } catch (error) {
@@ -46,9 +46,9 @@ export default class VideoDownloader {
       }
       throw new DownloadError(event, retries);
     }
-  }
+  };
 
-  private onError(error: DownloadError): void {
+  private onError = (error: DownloadError): void => {
     if (!(error instanceof DownloadError)) {
       return;
     }
@@ -58,5 +58,5 @@ export default class VideoDownloader {
     setTimeout(() => {
       this.queueDownload(event, retries - 1);
     }, RETRY_INTERNAL_MS);
-  }
+  };
 }
