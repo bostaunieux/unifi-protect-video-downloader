@@ -40,8 +40,8 @@ describe("VideoDownloader", () => {
       SequentialTaskQueueMock.prototype.push.mockClear();
     });
 
-    it("should queue a motion event", () => {
-      videoDownloader.queueDownload(event);
+    it("should queue a motion event", async () => {
+      await videoDownloader.queueDownload(event);
 
       // @ts-expect-error access private method
       expect(SequentialTaskQueueMock.prototype.push).toHaveBeenCalledWith(videoDownloader.processEvent, {

@@ -43,6 +43,8 @@ export default class VideoDownloader {
       console.warn("Download attempt failed for event: %s, retries: %s", event, retries);
       if (error?.response) {
         console.warn("Error details - status: %s, data: %s", error.response.status, error.response.data);
+      } else {
+        console.warn("Error details - %s", error);
       }
       throw new DownloadError(event, retries);
     }
