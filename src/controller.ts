@@ -80,15 +80,6 @@ export default class Controller {
     this.client?.on("error", async (error) => {
       console.error("Encountered MQTT error: %s; will reconnect after a delay", error);
     });
-
-    this.client?.on("connect", () => {
-      console.info("Connected to MQTT broker");
-
-      this.client?.publish(`${this.mqttPrefix}/protect-downloader/availability`, "online", {
-        qos: 1,
-        retain: true,
-      });
-    });
   };
 
   private getConnection = (): Client | undefined => {
@@ -96,7 +87,9 @@ export default class Controller {
       return;
     }
 
-    return mqtt.connect(this.mqttHost, {
+    console.info("Connecting to MQTT broker...");
+
+    const client = mqtt.connect(this.mqttHost, {
       will: {
         topic: `${this.mqttPrefix}/protect-downloader/availability`,
         payload: "offline",
@@ -105,6 +98,17 @@ export default class Controller {
       },
       reconnectPeriod: CONNECTION_RETRY_DELAY_SEC * 1000,
     });
+
+    client.on("connect", () => {
+      console.info("Connected to MQTT broker");
+
+      client.publish(`${this.mqttPrefix}/protect-downloader/availability`, "online", {
+        qos: 1,
+        retain: true,
+      });
+    });
+
+    return client;
   };
 
   private shouldProcessMotionEvent = (event: MotionEvent, camera: CameraDetails) => {
