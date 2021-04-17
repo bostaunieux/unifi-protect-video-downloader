@@ -27,9 +27,13 @@ e.g.
    ```
    npm install
    ```
-3. Start the service
+3. Build the service
    ```
-   npm run start
+   npm run build
+   ```
+4. Start the service
+   ```
+   npm start
    ```
 
 ## Running via docker
