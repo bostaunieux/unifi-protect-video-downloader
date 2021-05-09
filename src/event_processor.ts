@@ -80,7 +80,7 @@ export default class EventProcessor {
     // and start timestamp. we'll queue this info until a later 'update' event comes
     // with the end timestamp
     if (action.modelKey === "event" && action.action === "add") {
-      const { id, type, camera, smartDetectTypes, start } = (payload as unknown) as AddEventPayload;
+      const { id, type, camera, smartDetectTypes, start } = payload as unknown as AddEventPayload;
 
       if (type === "smartDetectZone" && smartDetectTypes.length) {
         const motionStartEvent: MotionStartEvent = { camera, start, type: "smart" };
@@ -99,7 +99,7 @@ export default class EventProcessor {
 
     // check for smart motion end event
     if (action.modelKey === "event" && action.action === "update") {
-      const { score, end } = (payload as unknown) as UpdateEventPayload;
+      const { score, end } = payload as unknown as UpdateEventPayload;
       const { camera, start, type } = this.smartMotionEvents.get(action.id) ?? {};
       if (camera && start && end && type) {
         // process end motion event
@@ -110,7 +110,7 @@ export default class EventProcessor {
 
     //check for basic motion start event
     if (action.modelKey === "camera" && action.action === "update") {
-      const { lastMotion, isMotionDetected } = (payload as unknown) as UpdateEventPayload;
+      const { lastMotion, isMotionDetected } = payload as unknown as UpdateEventPayload;
       const camera = action.id;
 
       if (lastMotion && isMotionDetected === true) {

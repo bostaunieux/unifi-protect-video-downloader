@@ -32,7 +32,7 @@ describe("Controller", () => {
     ApiMock.prototype.initialize.mockResolvedValue();
     ApiMock.prototype.getCameras.mockReturnValue([TEST_CAMERA_1, TEST_CAMERA_2]);
 
-    const iStreamMock: IStream = (jest.fn() as unknown) as IStream;
+    const iStreamMock: IStream = jest.fn() as unknown as IStream;
     mqttMock.connect.mockReturnValue(new ClientMock(() => iStreamMock, {}));
 
     controller = new Controller({
