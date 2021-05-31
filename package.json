@@ -28,7 +28,7 @@
     "log-timestamp": "^0.3.0",
     "mqtt": "^4.2.6",
     "sequential-task-queue": "^1.2.1",
-    "ws": "^7.4.2",
+    "ws": "^7.4.6",
     "zlib": "^1.0.5"
   },
   "devDependencies": {
