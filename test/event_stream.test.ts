@@ -33,12 +33,14 @@ describe("EventStream", () => {
     it("should not connect if already connected", () => {
       eventStream.connect();
 
+      // @ts-expect-error access readonly property
       MockWebSocket.mock.instances[0].readyState = CLOSED;
 
       eventStream.connect();
 
       expect(MockWebSocket.mock.calls).toHaveLength(2);
 
+      // @ts-expect-error access readonly property
       MockWebSocket.mock.instances[1].readyState = OPEN;
 
       eventStream.connect();
