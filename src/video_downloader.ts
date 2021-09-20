@@ -39,7 +39,7 @@ export default class VideoDownloader {
   private processEvent = async (event: MotionEndEvent, retries: number): Promise<void> => {
     try {
       await this.api.downloadVideo(event);
-    } catch (error) {
+    } catch (error: any) {
       console.warn("Download attempt failed for event: %s, retries: %s", event, retries);
       if (error?.response) {
         console.warn("Error details - status: %s, data: %s", error.response.status, error.response.data);

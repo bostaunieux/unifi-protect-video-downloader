@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from "axios";
+import axios, { AxiosError, AxiosInstance } from "axios";
 import axiosRetry from "axios-retry";
 import https from "https";
 import path from "path";
@@ -214,7 +214,7 @@ export default class Api {
     let htmlResponse;
     try {
       htmlResponse = await this.request.get(`/`);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Index request failed: %s", error.message);
       return false;
     }
@@ -239,7 +239,7 @@ export default class Api {
           },
         }
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login request failed: %s", error.message);
       return false;
     }
