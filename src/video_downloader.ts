@@ -1,6 +1,7 @@
 import { SequentialTaskQueue } from "sequential-task-queue";
 import { DownloadError, MotionEndEvent } from "./types";
 import Api from "./api";
+import axios from "axios";
 
 export const MAX_RETRIES = 5;
 export const RETRY_INTERNAL_MS = 60 * 1000;
@@ -39,10 +40,12 @@ export default class VideoDownloader {
   private processEvent = async (event: MotionEndEvent, retries: number): Promise<void> => {
     try {
       await this.api.downloadVideo(event);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const response = axios.isAxiosError(error) ? error.response : null;
+
       console.warn("Download attempt failed for event: %s, retries: %s", event, retries);
-      if (error?.response) {
-        console.warn("Error details - status: %s, data: %s", error.response.status, error.response.data);
+      if (response) {
+        console.warn("Error details - status: %s, data: %s", response.status, response.data);
       } else {
         console.warn("Error details - %s", error);
       }

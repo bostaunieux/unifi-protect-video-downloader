@@ -1,4 +1,4 @@
-import axios, { AxiosError, AxiosInstance } from "axios";
+import axios, { AxiosInstance } from "axios";
 import axiosRetry from "axios-retry";
 import https from "https";
 import path from "path";
@@ -214,8 +214,9 @@ export default class Api {
     let htmlResponse;
     try {
       htmlResponse = await this.request.get(`/`);
-    } catch (error: any) {
-      console.error("Index request failed: %s", error.message);
+    } catch (error: unknown) {
+      const message = axios.isAxiosError(error) ? error.message : "UNKNOWN CAUSE";
+      console.error("Index request failed: %s", message);
       return false;
     }
 
@@ -239,22 +240,23 @@ export default class Api {
           },
         }
       );
-    } catch (error: any) {
-      console.error("Login request failed: %s", error.message);
+    } catch (error: unknown) {
+      const message = axios.isAxiosError(error) ? error.message : "UNKNOWN CAUSE";
+      console.error("Login request failed: %s", message);
       return false;
     }
 
     const csrfToken = authResponse.headers["x-csrf-token"];
     const cookie = authResponse.headers["set-cookie"];
 
-    if (!csrfToken || !cookie) {
+    if (!csrfToken || !cookie?.[0]) {
       console.log("Unable to fetch auth details");
       return false;
     }
 
     this.headers = {
       "Content-Type": "application/json",
-      Cookie: cookie,
+      Cookie: cookie[0],
       "X-CSRF-Token": csrfToken,
     };
 
