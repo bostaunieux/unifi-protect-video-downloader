@@ -28,14 +28,14 @@
     "log-timestamp": "^0.3.0",
     "mqtt": "^4.2.6",
     "sequential-task-queue": "^1.2.1",
-    "ws": "^7.4.6",
+    "ws": "^8.4.2",
     "zlib": "^1.0.5"
   },
   "devDependencies": {
     "@types/axios": "^0.14.0",
     "@types/jest": "^27.4.0",
     "@types/node": "^17.0.10",
-    "@types/ws": "^7.4.0",
+    "@types/ws": "^8.2.2",
     "@typescript-eslint/eslint-plugin": "^5.10.0",
     "@typescript-eslint/parser": "^5.10.0",
     "eslint": "^8.7.0",
