@@ -28,8 +28,8 @@
     "log-timestamp": "^0.3.0",
     "mqtt": "^4.2.6",
     "sequential-task-queue": "^1.2.1",
-    "ws": "^8.4.2",
-    "zlib": "^1.0.5"
+    "unifi-protect": "^3.0.4",
+    "ws": "^8.4.2"
   },
   "devDependencies": {
     "@types/axios": "^0.14.0",
