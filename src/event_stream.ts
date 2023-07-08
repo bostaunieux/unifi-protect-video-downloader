@@ -1,4 +1,4 @@
-import WebSocket, { CONNECTING, OPEN } from "ws";
+import WebSocket from "ws";
 
 interface EventStreamProps {
   /** NVR host */
@@ -41,7 +41,7 @@ export default class EventStream {
    */
   public connect(): boolean {
     // guard against repeated calls to connect when already connected
-    if (this.socket?.readyState === OPEN || this.socket?.readyState === CONNECTING) {
+    if (this.socket?.readyState === WebSocket.OPEN || this.socket?.readyState === WebSocket.CONNECTING) {
       return true;
     }
 

@@ -1,7 +1,7 @@
+import axios from "axios";
 import { SequentialTaskQueue } from "sequential-task-queue";
 import { DownloadError, MotionEndEvent } from "./types";
 import Api from "./api";
-import axios from "axios";
 
 export const MAX_RETRIES = 5;
 export const RETRY_INTERNAL_MS = 60 * 1000;
