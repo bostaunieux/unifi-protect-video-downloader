@@ -87,6 +87,7 @@ export default class Api {
    * Setup the api connection for future requests and connect to the nvr websocket server
    */
   public async initialize(): Promise<void> {
+    console.info("Initializing unifi controller connection...");
     const { cameras } = await this.getBootstrap();
     console.info(
       "Found cameras: %s",
@@ -208,21 +209,15 @@ export default class Api {
       return true;
     }
 
-    console.info("Requesting new authentication...");
+    console.info("Requesting new unifi controller authentication...");
 
     // make an intial request to the unifi os entry page to "borrow" the csrf token it generates
-    let htmlResponse;
+    let homepageResponse;
     try {
-      htmlResponse = await this.request.get(`/`);
+      homepageResponse = await this.request.get(`/`);
     } catch (error: unknown) {
       const message = axios.isAxiosError(error) ? error.message : "UNKNOWN CAUSE";
-      console.error("Index request failed: %s", message);
-      return false;
-    }
-
-    if (htmlResponse?.status !== 200 || !htmlResponse?.headers["x-csrf-token"]) {
-      console.log("Unable to get initial CSFR token");
-      return false;
+      console.warn("Homepage request failed, skipping: %s", message);
     }
 
     let authResponse;
@@ -233,10 +228,12 @@ export default class Api {
         {
           username: this.username,
           password: this.password,
+          rememberMe: true,
+          token: "",
         },
         {
           headers: {
-            "X-CSRF-Token": htmlResponse.headers["x-csrf-token"],
+            "X-CSRF-Token": homepageResponse?.headers["x-csrf-token"],
           },
         }
       );
@@ -253,6 +250,8 @@ export default class Api {
       console.log("Unable to fetch auth details");
       return false;
     }
+
+    console.info("Unifi controller authentication completed");
 
     this.headers = {
       "Content-Type": "application/json",
