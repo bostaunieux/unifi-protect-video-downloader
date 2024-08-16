@@ -38,6 +38,7 @@ describe("Controller", () => {
     controller = new Controller({
       api: stubApi(),
       cameraNames: [],
+      cameraNamesExclude: [],
       mqttHost: TEST_HOST,
       mqttPrefix: "foo",
       enableSmartMotion: true,

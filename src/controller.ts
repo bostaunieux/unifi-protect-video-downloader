@@ -65,7 +65,7 @@ export default class Controller {
     /** Exclude filtering */
     } else if (this.cameraNamesExclude.length) {
       filteredCameras = allCameras.filter((camera) => !this.cameraNamesExclude.includes(camera.name));
-      /** No filttering, include all cameras */
+      /** No filtering, include all cameras */
     } else {
       filteredCameras = allCameras;
     }
