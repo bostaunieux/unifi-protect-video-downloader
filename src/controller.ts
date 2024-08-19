@@ -9,6 +9,8 @@ interface ControllerProps {
   api: Api;
   /** Optional camera names to process motion events */
   cameraNames: Array<string>;
+  /** Optinal camera names to exclude from processing motion events */
+  cameraNamesExclude: Array<string>;
   /** For cameras supporting smart motion events, should smart motion events trigger downloads  */
   enableSmartMotion: boolean;
   /** Optional MQTT host */
@@ -26,6 +28,7 @@ const CONNECTION_RETRY_DELAY_SEC = 30;
 export default class Controller {
   private api: Api;
   private cameraNames: Array<string>;
+  private cameraNamesExclude: Array<string>;
   private enableSmartMotion: boolean;
   private eventProcessor: EventProcessor;
   private downloader: VideoDownloader;
@@ -34,9 +37,10 @@ export default class Controller {
   private mqttHost?: string;
   private mqttPrefix: string;
 
-  constructor({ api, cameraNames, mqttHost, mqttPrefix, enableSmartMotion }: ControllerProps) {
+  constructor({ api, cameraNames, cameraNamesExclude, mqttHost, mqttPrefix, enableSmartMotion }: ControllerProps) {
     this.api = api;
     this.cameraNames = cameraNames;
+    this.cameraNamesExclude = cameraNamesExclude;
     this.mqttHost = mqttHost;
     this.mqttPrefix = mqttPrefix;
     this.enableSmartMotion = enableSmartMotion;
@@ -54,10 +58,19 @@ export default class Controller {
     await this.api.initialize();
 
     const allCameras = this.api.getCameras();
-    const targetCameras = this.cameraNames.length
-      ? allCameras.filter((camera) => this.cameraNames.includes(camera.name))
-      : allCameras;
+    let filteredCameras;
+    /** Include Filtering */
+    if (this.cameraNames.length) {
+      filteredCameras = allCameras.filter((camera) => this.cameraNames.includes(camera.name));
+    /** Exclude filtering */
+    } else if (this.cameraNamesExclude.length) {
+      filteredCameras = allCameras.filter((camera) => !this.cameraNamesExclude.includes(camera.name));
+      /** No filtering, include all cameras */
+    } else {
+      filteredCameras = allCameras;
+    }
 
+    const targetCameras = filteredCameras;
     this.camerasById = new Map<CameraId, CameraDetails>(targetCameras.map((camera) => [camera.id, camera]));
 
     if (this.camerasById.size === 0) {
