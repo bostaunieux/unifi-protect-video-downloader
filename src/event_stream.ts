@@ -26,7 +26,7 @@ export default class EventStream {
   private host: string;
   private headers: Record<string, string>;
   private lastUpdateId: string;
-  private subscribers = new Set<(event: Buffer) => void>();
+  private subscribers = new Set<(_event: Buffer) => void>();
   private socket?: WebSocket;
   private pingTimeout?: NodeJS.Timeout;
 
@@ -70,7 +70,7 @@ export default class EventStream {
    *
    * @param eventHandler Callback for processing websocket messages
    */
-  public addSubscriber(eventHandler: (event: Buffer) => void): void {
+  public addSubscriber(eventHandler: (_event: Buffer) => void): void {
     console.info("Adding event subscriber");
     this.subscribers.add(eventHandler);
   }
@@ -103,7 +103,9 @@ export default class EventStream {
   }
 
   private heartbeat() {
-    this.pingTimeout && clearTimeout(this.pingTimeout);
+    if (this.pingTimeout) {
+      clearTimeout(this.pingTimeout);
+    }
 
     // Use `WebSocket#terminate()`, which immediately destroys the connection,
     // instead of `WebSocket#close()`, which waits for the close timer.
@@ -126,7 +128,9 @@ export default class EventStream {
 
   private onClose() {
     console.info("WebSocket connection closed");
-    this.pingTimeout && clearTimeout(this.pingTimeout);
+    if (this.pingTimeout) {
+      clearTimeout(this.pingTimeout);
+    }
     this.socket = undefined;
     this.connected = false;
 
