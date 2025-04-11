@@ -37,7 +37,14 @@ const init = async () => {
   });
 
   try {
-    const controller = new Controller({ api, cameraNames, cameraNamesExclude, mqttHost, mqttPrefix, enableSmartMotion });
+    const controller = new Controller({
+      api,
+      cameraNames,
+      cameraNamesExclude,
+      mqttHost,
+      mqttPrefix,
+      enableSmartMotion,
+    });
     await controller.initialize();
     controller.subscribe();
   } catch (error) {

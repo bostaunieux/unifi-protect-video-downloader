@@ -62,7 +62,7 @@ export default class Controller {
     /** Include Filtering */
     if (this.cameraNames.length) {
       filteredCameras = allCameras.filter((camera) => this.cameraNames.includes(camera.name));
-    /** Exclude filtering */
+      /** Exclude filtering */
     } else if (this.cameraNamesExclude.length) {
       filteredCameras = allCameras.filter((camera) => !this.cameraNamesExclude.includes(camera.name));
       /** No filtering, include all cameras */
@@ -85,7 +85,7 @@ export default class Controller {
   public subscribe = (): void => {
     console.info(
       "Subscribing to motion events for cameras: %s",
-      Array.from(this.camerasById).map(([, { name }]) => name)
+      Array.from(this.camerasById).map(([, { name }]) => name),
     );
 
     this.api.addSubscriber(this.onMessage);
@@ -153,7 +153,7 @@ export default class Controller {
       {
         qos: 1,
         retain: true,
-      }
+      },
     );
   };
 }

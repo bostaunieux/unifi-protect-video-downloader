@@ -35,7 +35,7 @@ export const mockLogin = (scope: Scope): Scope =>
     .post(
       "/api/auth/login",
       { username: USERNAME, password: PASSWORD, rememberMe: true, token: "" },
-      { reqheaders: { "X-CSRF-Token": AUTH_TOKEN } }
+      { reqheaders: { "X-CSRF-Token": AUTH_TOKEN } },
     )
     .reply(200, "", {
       "X-CSRF-Token": AUTH_TOKEN,
@@ -47,7 +47,7 @@ export const mockFailedLogin = (scope: Scope): Scope =>
     .post(
       "/api/auth/login",
       { username: USERNAME, password: PASSWORD, rememberMe: true, token: "" },
-      { reqheaders: { "X-CSRF-Token": AUTH_TOKEN } }
+      { reqheaders: { "X-CSRF-Token": AUTH_TOKEN } },
     )
     .reply(401);
 

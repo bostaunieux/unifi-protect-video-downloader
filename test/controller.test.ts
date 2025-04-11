@@ -114,7 +114,7 @@ describe("Controller", () => {
       expect(ClientMock.mock.instances[0].publish).toHaveBeenCalledWith(
         expect.stringMatching(new RegExp(`downloader\/${TEST_CAMERA_1.id}\/motion$`)),
         expect.stringContaining(TEST_CAMERA_1.name),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
 
@@ -135,7 +135,7 @@ describe("Controller", () => {
       expect(ClientMock.mock.instances[0].publish).toHaveBeenCalledWith(
         expect.stringMatching(new RegExp(`downloader\/${TEST_CAMERA_1.id}\/motion$`)),
         expect.stringContaining(TEST_CAMERA_1.name),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
   });

@@ -56,7 +56,7 @@ describe("Api", () => {
     expect(EventStreamMock).toHaveBeenCalledWith(
       expect.objectContaining({
         host: TEST_HOST,
-      })
+      }),
     );
     expect(EventStreamMock.mock.instances[0].connect).toHaveBeenCalledTimes(1);
   });
