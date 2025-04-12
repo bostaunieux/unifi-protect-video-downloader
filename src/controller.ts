@@ -1,4 +1,4 @@
-import mqtt, { Client } from "mqtt";
+import mqtt, { MqttClient } from "mqtt";
 import Api from "./api";
 import EventProcessor from "./event_processor";
 import { CameraId, CameraDetails, isMotionEndEvent, MotionEvent } from "./types";
@@ -33,7 +33,7 @@ export default class Controller {
   private eventProcessor: EventProcessor;
   private downloader: VideoDownloader;
   private camerasById: Map<CameraId, CameraDetails>;
-  private client?: Client;
+  private client?: MqttClient;
   private mqttHost?: string;
   private mqttPrefix: string;
 
@@ -95,7 +95,7 @@ export default class Controller {
     });
   };
 
-  private getConnection = (): Client | undefined => {
+  private getConnection = (): MqttClient | undefined => {
     if (!this.mqttHost) {
       return;
     }
