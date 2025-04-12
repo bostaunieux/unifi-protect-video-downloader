@@ -121,11 +121,10 @@ describe("Api", () => {
     const mockWriteable = new Writable() as WriteStream;
     fsMock.createWriteStream.mockReturnValueOnce(mockWriteable);
 
-    // delay finishing the stream until after the mock request has been made
-    setTimeout(() => {
-      mockWriteable.emit("finish");
-    }, 1);
+    // Start the download
+    const downloadPromise = api.downloadVideo({ camera: TEST_CAMERA_1.id, start: 1000, end: 9000 });
 
-    await expect(api.downloadVideo({ camera: TEST_CAMERA_1.id, start: 1000, end: 9000 })).resolves.toBe(true);
+    // The mock stream will end automatically, which will trigger the finish event
+    await expect(downloadPromise).resolves.toBe(true);
   });
 });

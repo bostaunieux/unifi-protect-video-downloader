@@ -70,7 +70,10 @@ export const mockDownloadVideo = (scope: Scope): Scope =>
     .get("/proxy/protect/api/video/export")
     .query(true)
     .reply(200, () => {
-      return new PassThrough();
+      const stream = new PassThrough();
+      // End the stream immediately to simulate a successful download
+      stream.end();
+      return stream;
     });
 
 export const mockSuccess = (scope: Scope): Scope => {
