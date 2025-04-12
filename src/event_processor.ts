@@ -102,9 +102,9 @@ export default class EventProcessor {
         return { camera, start: lastMotion, type: "basic" };
       } else if (lastMotion && isMotionDetected === false) {
         // process end motion event
-        const firstMotion = this.motionEvents.get(action.id);
+        const firstMotion = this.motionEvents.get(camera);
         if (firstMotion) {
-          this.motionEvents.delete(action.id);
+          this.motionEvents.delete(camera);
           return { camera, start: firstMotion, end: lastMotion, type: "basic" };
         }
       }

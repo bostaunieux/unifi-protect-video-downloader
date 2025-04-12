@@ -6,7 +6,8 @@
     "outDir": "./dist",
     "esModuleInterop": true,
     "strict": true,
-    "types": ["node", "jest"]
+    "types": ["node", "jest"],
+    "lib": ["ES2020"]
   },
   "include": [
     "./src/**/*.ts"
