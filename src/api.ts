@@ -91,7 +91,7 @@ export default class Api {
     const { cameras } = await this.getBootstrap();
     console.info(
       "Found cameras: %s",
-      cameras.map((c) => `${c.id} : ${c.name}`)
+      cameras.map((c) => `${c.id} : ${c.name}`),
     );
 
     await this.connect();
@@ -115,7 +115,7 @@ export default class Api {
    * Add an event handler for websocket message events
    * @param eventHandler Callback for processing websocket messages
    */
-  public addSubscriber(eventHandler: (event: Buffer) => void): void {
+  public addSubscriber(eventHandler: (_event: Buffer) => void): void {
     this.stream?.addSubscriber(eventHandler);
   }
 
@@ -143,12 +143,12 @@ export default class Api {
     console.info(
       "Downloading video with length: %s seconds, to file path: %s",
       Math.round((end - start) / 1000),
-      filePath
+      filePath,
     );
 
     try {
       await promises.access(filePath);
-    } catch (e) {
+    } catch (_error) {
       // directory doesn't exist, create it
       await promises.mkdir(filePath, { recursive: true });
     }
@@ -235,7 +235,7 @@ export default class Api {
           headers: {
             "X-CSRF-Token": homepageResponse?.headers["x-csrf-token"],
           },
-        }
+        },
       );
     } catch (error: unknown) {
       const message = axios.isAxiosError(error) ? error.message : "UNKNOWN CAUSE";
