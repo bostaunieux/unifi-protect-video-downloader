@@ -24,7 +24,7 @@
     "axios": "^1.12.1",
     "axios-retry": "^4.5.0",
     "dotenv": "^17.2.2",
-    "lodash": "^4.17.21",
+    "lodash": "^4.17.23",
     "log-timestamp": "^0.3.0",
     "mqtt": "^5.11.0",
     "sequential-task-queue": "^1.2.1",
