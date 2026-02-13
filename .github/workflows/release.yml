@@ -9,10 +9,15 @@ on:
       - 'v*.*.*'
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Release version (e.g. 4.0.5)'
+      bump:
+        description: 'Version bump type'
         required: true
-        type: string
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
 
 permissions:
   contents: write
@@ -26,19 +31,35 @@ jobs:
         with:
           fetch-depth: 0  # needed for generate_release_notes
 
-      - name: Create and push tag
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "v${{ inputs.version }}"
-          git push origin "v${{ inputs.version }}"
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
           cache: 'npm'
+
+      - name: Compute new version
+        id: version
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          NEW_VERSION=$(node -e "
+          const pkg = require('./package.json');
+          const [major, minor, patch] = pkg.version.split('.').map(Number);
+          const bump = '${{ inputs.bump }}';
+          let v;
+          if (bump === 'major') v = [major + 1, 0, 0];
+          else if (bump === 'minor') v = [major, minor + 1, 0];
+          else v = [major, minor, patch + 1];
+          console.log(v.join('.'));
+          ")
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create and push tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
 
       - name: Install dependencies
         run: npm ci
@@ -51,7 +72,7 @@ jobs:
         with:
           draft: true
           generate_release_notes: true
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', steps.version.outputs.version) || github.ref_name }}
           files: dist/**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
