@@ -1,17 +1,13 @@
-import { SequentialTaskQueue } from "sequential-task-queue";
 import { TEST_CAMERA_1, stubApi } from "./fixture_helper";
 import VideoDownloader, { MAX_RETRIES, RETRY_INTERNAL_MS } from "../src/video_downloader";
 import { DownloadError, MotionEndEvent } from "../src/types";
 import Api from "../src/api";
 
-// don't block on setInterval calls
 jest.useFakeTimers();
 
-jest.mock("sequential-task-queue");
 jest.mock("../src/api");
 
 const ApiMock = Api as jest.MockedClass<typeof Api>;
-const SequentialTaskQueueMock = SequentialTaskQueue as jest.MockedClass<typeof SequentialTaskQueue>;
 
 describe("VideoDownloader", () => {
   let videoDownloader: VideoDownloader;
@@ -25,64 +21,60 @@ describe("VideoDownloader", () => {
 
   beforeEach(() => {
     ApiMock.mockClear();
-    SequentialTaskQueueMock.mockClear();
 
     videoDownloader = new VideoDownloader(stubApi());
   });
 
-  it("should properly initialize", () => {
-    // @ts-expect-error access private method
-    expect(SequentialTaskQueueMock.prototype.on).toHaveBeenLastCalledWith("error", videoDownloader.onError);
-  });
-
   describe("queueDownload", () => {
-    beforeEach(() => {
-      SequentialTaskQueueMock.prototype.push.mockClear();
-    });
+    it("should queue a motion event and process it", async () => {
+      ApiMock.prototype.downloadVideo.mockResolvedValue(true);
 
-    it("should queue a motion event", async () => {
-      await videoDownloader.queueDownload(event);
+      videoDownloader.queueDownload(event);
 
-      // @ts-expect-error access private method
-      expect(SequentialTaskQueueMock.prototype.push).toHaveBeenCalledWith(videoDownloader.processEvent, {
-        args: [event, MAX_RETRIES],
-      });
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(ApiMock.prototype.downloadVideo).toHaveBeenCalledWith(event);
     });
 
     it("should not queue a motion event with zero retries", () => {
+      const addSpy = jest.spyOn(videoDownloader.queue, "add");
+
       videoDownloader.queueDownload(event, 0);
 
-      expect(SequentialTaskQueueMock.prototype.push).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("onError", () => {
-    let queueDownloadSpy: jest.SpyInstance;
-
-    beforeEach(() => {
-      queueDownloadSpy = jest.spyOn(videoDownloader, "queueDownload");
+      expect(addSpy).not.toHaveBeenCalled();
     });
 
-    afterEach(() => {
-      queueDownloadSpy.mockRestore();
+    it("should requeue a motion event on DownloadError", async () => {
+      const queueDownloadSpy = jest.spyOn(videoDownloader, "queueDownload");
+      ApiMock.prototype.downloadVideo.mockRejectedValue(new Error("network error"));
+
+      videoDownloader.queueDownload(event, 5);
+
+      await Promise.resolve();
+      await Promise.resolve();
+      await jest.runOnlyPendingTimersAsync();
+
+      expect(queueDownloadSpy).toHaveBeenCalledTimes(2);
+      expect(queueDownloadSpy).toHaveBeenNthCalledWith(1, event, 5);
+      expect(queueDownloadSpy).toHaveBeenNthCalledWith(2, event, 4);
     });
 
-    it("should requeue a motion event", async () => {
-      const retries = 5;
-      // @ts-expect-error access private method
-      videoDownloader.onError(new DownloadError(event, retries));
+    it("should not requeue on non-DownloadError", async () => {
+      const queueDownloadSpy = jest.spyOn(videoDownloader, "queueDownload");
+      const processEventSpy = jest
+        .spyOn(videoDownloader as unknown as { processEvent: () => Promise<void> }, "processEvent")
+        .mockRejectedValue(new Error("other error"));
 
-      jest.advanceTimersByTime(RETRY_INTERNAL_MS);
+      videoDownloader.queueDownload(event, 5);
+
+      await Promise.resolve();
+      await Promise.resolve();
+      await jest.runOnlyPendingTimersAsync();
 
       expect(queueDownloadSpy).toHaveBeenCalledTimes(1);
-      expect(queueDownloadSpy).toHaveBeenCalledWith(event, retries - 1);
-    });
-
-    it("should do nothing with an unknown error", async () => {
-      // @ts-expect-error access private method
-      videoDownloader.onError(new Error("unknown error") as DownloadError);
-
-      expect(queueDownloadSpy).not.toHaveBeenCalled();
+      expect(queueDownloadSpy).toHaveBeenCalledWith(event, 5);
+      processEventSpy.mockRestore();
     });
   });
 

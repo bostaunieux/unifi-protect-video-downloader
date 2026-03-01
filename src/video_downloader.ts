@@ -1,5 +1,5 @@
 import axios from "axios";
-import { SequentialTaskQueue } from "sequential-task-queue";
+import { SequentialQueue } from "./sequential_queue";
 import { logger } from "./logger";
 import { DownloadError, MotionEndEvent } from "./types";
 import Api from "./api";
@@ -13,12 +13,10 @@ export const RETRY_INTERNAL_MS = 60 * 1000;
  */
 export default class VideoDownloader {
   api: Api;
-  queue = new SequentialTaskQueue();
+  queue = new SequentialQueue();
 
   constructor(api: Api) {
     this.api = api;
-
-    this.queue.on("error", this.onError);
   }
 
   /**
@@ -27,7 +25,7 @@ export default class VideoDownloader {
    * @param event event details for the video to download
    * @param retries number of retries remaining; numbers <= 0 will result in a video not being downloaded
    */
-  public async queueDownload(event: MotionEndEvent, retries = MAX_RETRIES): Promise<void> {
+  public queueDownload(event: MotionEndEvent, retries = MAX_RETRIES): void {
     if (retries <= 0) {
       logger.warn("Retries exhausted, not queuing download for event: %s", event);
       return;
@@ -35,7 +33,14 @@ export default class VideoDownloader {
 
     logger.info("Queueing motion event: %s, retries: %s", event, retries);
 
-    await this.queue.push(this.processEvent, { args: [event, retries] });
+    this.queue
+      .add(() => this.processEvent(event, retries))
+      .catch((err: unknown) => {
+        if (err instanceof DownloadError) {
+          logger.info("Encountered queue error: %s", err);
+          setTimeout(() => this.queueDownload(err.event, err.retries - 1), RETRY_INTERNAL_MS);
+        }
+      });
   }
 
   private processEvent = async (event: MotionEndEvent, retries: number): Promise<void> => {
@@ -52,17 +57,5 @@ export default class VideoDownloader {
       }
       throw new DownloadError(event, retries);
     }
-  };
-
-  private onError = (error: DownloadError): void => {
-    if (!(error instanceof DownloadError)) {
-      return;
-    }
-    const { event, retries } = error;
-
-    logger.info("Encountered queue error: %s", error);
-    setTimeout(() => {
-      this.queueDownload(event, retries - 1);
-    }, RETRY_INTERNAL_MS);
   };
 }
