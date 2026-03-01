@@ -1,4 +1,5 @@
 import WebSocket from "ws";
+import { logger } from "./logger";
 
 interface EventStreamProps {
   /** NVR host */
@@ -49,7 +50,7 @@ export default class EventStream {
 
     const webSocketUrl = `wss://${this.host}/proxy/protect/ws/updates?lastUpdateId=${this.lastUpdateId}`;
 
-    console.debug("Connecting to ws server url: %s", webSocketUrl);
+    logger.debug("Connecting to ws server url: %s", webSocketUrl);
 
     this.socket = new WebSocket(webSocketUrl, {
       headers: this.headers,
@@ -71,7 +72,7 @@ export default class EventStream {
    * @param eventHandler Callback for processing websocket messages
    */
   public addSubscriber(eventHandler: (_event: Buffer) => void): void {
-    console.info("Adding event subscriber");
+    logger.info("Adding event subscriber");
     this.subscribers.add(eventHandler);
   }
 
@@ -115,7 +116,7 @@ export default class EventStream {
   }
 
   private onOpen() {
-    console.info("Connected to UnifiOS websocket server for event updates");
+    logger.info("Connected to UnifiOS websocket server for event updates");
     this.connected = true;
     this.shouldReconnect = true;
     this.heartbeat();
@@ -127,7 +128,7 @@ export default class EventStream {
   }
 
   private onClose() {
-    console.info("WebSocket connection closed");
+    logger.info("WebSocket connection closed");
     if (this.pingTimeout) {
       clearTimeout(this.pingTimeout);
     }
@@ -138,7 +139,7 @@ export default class EventStream {
   }
 
   private onError(error: Error) {
-    console.error("Websocket connection error: %s", error);
+    logger.error("Websocket connection error: %s", error);
 
     // terminate the connect; this will trigger a reconnect attempt
     this.socket?.terminate();

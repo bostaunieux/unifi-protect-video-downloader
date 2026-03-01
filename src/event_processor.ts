@@ -1,4 +1,5 @@
 import { ProtectApiUpdates } from "unifi-protect";
+import { logger } from "./logger";
 import { CameraId, EventId, MotionEndEvent, MotionStartEvent, Timestamp } from "./types";
 
 // properties on an 'update' event payload vary based on the prior event
@@ -49,10 +50,10 @@ export default class EventProcessor {
    * @param message {Buffer} Message buffer for NVR activity event
    */
   public parseMessage(message: Buffer): MotionStartEvent | MotionEndEvent | null {
-    const response = ProtectApiUpdates.decodeUpdatePacket(console, message);
+    const response = ProtectApiUpdates.decodeUpdatePacket(logger, message);
 
     if (!response?.payload || !response?.action) {
-      console.debug("Skipping unrecognized message");
+      logger.debug("Skipping unrecognized message");
       return null;
     }
 
@@ -67,7 +68,7 @@ export default class EventProcessor {
       if (type === "smartDetectZone" && smartDetectTypes.length) {
         const motionStartEvent: MotionStartEvent = { camera, start, type: "smart" };
         // process smart motion event
-        console.info("Queuing start motion event for camera: %s, start: %d", camera, start);
+        logger.info("Queuing start motion event for camera: %s, start: %d", camera, start);
         this.smartMotionEvents.set(id, motionStartEvent);
 
         // register a delayed handler to clear the event from the queue
@@ -85,7 +86,7 @@ export default class EventProcessor {
       const { camera, start, type } = this.smartMotionEvents.get(action.id) ?? {};
       if (camera && start && end && type) {
         // process end motion event
-        console.info("Processing end motion event for camera: %s score: %d", camera, score);
+        logger.info("Processing end motion event for camera: %s score: %d", camera, score);
         return { camera, start, end, type };
       }
     }
@@ -97,7 +98,7 @@ export default class EventProcessor {
 
       if (lastMotion && isMotionDetected === true) {
         // process start motion event
-        console.info("Processing start basic motion event for camera: %s", camera);
+        logger.info("Processing start basic motion event for camera: %s", camera);
         this.motionEvents.set(camera, lastMotion);
         return { camera, start: lastMotion, type: "basic" };
       } else if (lastMotion && isMotionDetected === false) {

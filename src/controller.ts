@@ -1,5 +1,6 @@
 import mqtt, { MqttClient } from "mqtt";
 import Api from "./api";
+import { logger } from "./logger";
 import EventProcessor from "./event_processor";
 import { CameraId, CameraDetails, isMotionEndEvent, MotionEvent } from "./types";
 import VideoDownloader from "./video_downloader";
@@ -83,7 +84,7 @@ export default class Controller {
    * host is configured.
    */
   public subscribe = (): void => {
-    console.info(
+    logger.info(
       "Subscribing to motion events for cameras: %s",
       Array.from(this.camerasById).map(([, { name }]) => name),
     );
@@ -91,7 +92,7 @@ export default class Controller {
     this.api.addSubscriber(this.onMessage);
 
     this.client?.on("error", async (error) => {
-      console.error("Encountered MQTT error: %s; will reconnect after a delay", error);
+      logger.error("Encountered MQTT error: %s; will reconnect after a delay", error);
     });
   };
 
@@ -100,7 +101,7 @@ export default class Controller {
       return;
     }
 
-    console.info("Connecting to MQTT broker...");
+    logger.info("Connecting to MQTT broker...");
 
     const client = mqtt.connect(this.mqttHost, {
       will: {
@@ -113,7 +114,7 @@ export default class Controller {
     });
 
     client.on("connect", () => {
-      console.info("Connected to MQTT broker");
+      logger.info("Connected to MQTT broker");
 
       client.publish(`${this.mqttPrefix}/protect-downloader/availability`, "online", {
         qos: 1,
@@ -143,7 +144,7 @@ export default class Controller {
     }
 
     if (isMotionEndEvent(event) && this.shouldProcessMotionEvent(event, camera)) {
-      console.info("Processing motion event: %s", event);
+      logger.info("Processing motion event: %s", event);
       this.downloader.queueDownload(event);
     }
 

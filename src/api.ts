@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from "axios";
 import axiosRetry from "axios-retry";
 import https from "https";
+import { logger } from "./logger";
 import path from "path";
 import fs from "fs";
 import promises from "fs/promises";
@@ -87,9 +88,9 @@ export default class Api {
    * Setup the api connection for future requests and connect to the nvr websocket server
    */
   public async initialize(): Promise<void> {
-    console.info("Initializing unifi controller connection...");
+    logger.info("Initializing unifi controller connection...");
     const { cameras } = await this.getBootstrap();
-    console.info(
+    logger.info(
       "Found cameras: %s",
       cameras.map((c) => `${c.id} : ${c.name}`),
     );
@@ -136,11 +137,11 @@ export default class Api {
 
     const camera = this.bootstrap?.cameras.find((cam) => cam.id === id);
     if (!camera) {
-      console.error("Encountered unknown camera id: %s, unable to download video", id);
+      logger.error("Encountered unknown camera id: %s, unable to download video", id);
       return false;
     }
     const { filePath, fileName } = this.generateFileAttributes(camera.name, start);
-    console.info(
+    logger.info(
       "Downloading video with length: %s seconds, to file path: %s",
       Math.round((end - start) / 1000),
       filePath,
@@ -205,11 +206,11 @@ export default class Api {
 
     // do we need to reauthenticate?
     if (now < this.loginExpiry && this.headers) {
-      console.info("Using cached authentication");
+      logger.info("Using cached authentication");
       return true;
     }
 
-    console.info("Requesting new unifi controller authentication...");
+    logger.info("Requesting new unifi controller authentication...");
 
     // make an intial request to the unifi os entry page to "borrow" the csrf token it generates
     let homepageResponse;
@@ -217,7 +218,7 @@ export default class Api {
       homepageResponse = await this.request.get(`/`);
     } catch (error: unknown) {
       const message = axios.isAxiosError(error) ? error.message : "UNKNOWN CAUSE";
-      console.warn("Homepage request failed, skipping: %s", message);
+      logger.warn("Homepage request failed, skipping: %s", message);
     }
 
     let authResponse;
@@ -239,7 +240,7 @@ export default class Api {
       );
     } catch (error: unknown) {
       const message = axios.isAxiosError(error) ? error.message : "UNKNOWN CAUSE";
-      console.error("Login request failed: %s", message);
+      logger.error("Login request failed: %s", message);
       return false;
     }
 
@@ -247,11 +248,11 @@ export default class Api {
     const cookie = authResponse.headers["set-cookie"];
 
     if (!csrfToken || !cookie?.[0]) {
-      console.log("Unable to fetch auth details");
+      logger.log("Unable to fetch auth details");
       return false;
     }
 
-    console.info("Unifi controller authentication completed");
+    logger.info("Unifi controller authentication completed");
 
     this.headers = {
       "Content-Type": "application/json",

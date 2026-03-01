@@ -1,5 +1,6 @@
 import axios from "axios";
 import { SequentialTaskQueue } from "sequential-task-queue";
+import { logger } from "./logger";
 import { DownloadError, MotionEndEvent } from "./types";
 import Api from "./api";
 
@@ -28,11 +29,11 @@ export default class VideoDownloader {
    */
   public async queueDownload(event: MotionEndEvent, retries = MAX_RETRIES): Promise<void> {
     if (retries <= 0) {
-      console.warn("Retries exhausted, not queuing download for event: %s", event);
+      logger.warn("Retries exhausted, not queuing download for event: %s", event);
       return;
     }
 
-    console.info("Queueing motion event: %s, retries: %s", event, retries);
+    logger.info("Queueing motion event: %s, retries: %s", event, retries);
 
     await this.queue.push(this.processEvent, { args: [event, retries] });
   }
@@ -43,11 +44,11 @@ export default class VideoDownloader {
     } catch (error: unknown) {
       const response = axios.isAxiosError(error) ? error.response : null;
 
-      console.warn("Download attempt failed for event: %s, retries: %s", event, retries);
+      logger.warn("Download attempt failed for event: %s, retries: %s", event, retries);
       if (response) {
-        console.warn("Error details - status: %s, data: %s", response.status, response.data);
+        logger.warn("Error details - status: %s, data: %s", response.status, response.data);
       } else {
-        console.warn("Error details - %s", error);
+        logger.warn("Error details - %s", error);
       }
       throw new DownloadError(event, retries);
     }
@@ -59,7 +60,7 @@ export default class VideoDownloader {
     }
     const { event, retries } = error;
 
-    console.info("Encountered queue error: %s", error);
+    logger.info("Encountered queue error: %s", error);
     setTimeout(() => {
       this.queueDownload(event, retries - 1);
     }, RETRY_INTERNAL_MS);

@@ -1,6 +1,6 @@
-import "log-timestamp";
 import Api from "./api";
 import Controller from "./controller";
+import { logger } from "./logger";
 
 const {
   CAMERAS,
@@ -19,12 +19,12 @@ const cameraNamesExclude = CAMERAS_EXCLUDE?.split(",").map((camera) => camera.tr
 const enableSmartMotion = PREFER_SMART_MOTION === "true";
 
 if (!host || !username || !password) {
-  console.error("Unable to initialize; missing required configuration");
+  logger.error("Unable to initialize; missing required configuration");
   process.exit(1);
 }
 
 if (cameraNames.length && cameraNamesExclude.length) {
-  console.error("CAMERA_NAMES and CAMERA_NAMES_EXCLUDE cannot both be specified.");
+  logger.error("CAMERA_NAMES and CAMERA_NAMES_EXCLUDE cannot both be specified.");
   process.exit(1);
 }
 
@@ -48,12 +48,12 @@ const init = async () => {
     await controller.initialize();
     controller.subscribe();
   } catch (error) {
-    console.error("Failed initialization: %s", error);
+    logger.error("Failed initialization: %s", error);
     process.exit(1);
   }
 
   process.on("exit", function () {
-    console.info("Cleaning up connections...");
+    logger.info("Cleaning up connections...");
     api.terminate();
   });
 
