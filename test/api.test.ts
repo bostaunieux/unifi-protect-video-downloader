@@ -1,9 +1,9 @@
-import nock, { Scope } from "nock";
 import fs, { WriteStream } from "fs";
-import { Writable } from "stream";
+import { PassThrough } from "stream";
 import Api from "../src/api";
 import EventStream from "../src/event_stream";
 import {
+  createMockAgent,
   mockDownloadVideo,
   mockFailedLogin,
   mockIndex,
@@ -24,31 +24,28 @@ const TEST_HOST = "localhost";
 
 describe("Api", () => {
   let api: Api;
-  let scope: Scope;
+  let mockAgent: ReturnType<typeof createMockAgent>;
 
   beforeEach(() => {
-    if (!nock.isActive()) {
-      nock.activate();
-    }
-
     EventStreamMock.mockClear();
 
-    scope = nock(`https://${TEST_HOST}`);
+    mockAgent = createMockAgent();
 
     api = new Api({
       host: TEST_HOST,
       username: USERNAME,
       password: PASSWORD,
       downloadPath: "/downloads",
+      dispatcher: mockAgent,
     });
   });
 
-  afterEach(() => {
-    nock.restore();
+  afterEach(async () => {
+    await mockAgent.close();
   });
 
   it("should initialize successfully", async () => {
-    mockSuccess(scope);
+    mockSuccess(mockAgent.get(`https://${TEST_HOST}`));
 
     await api.initialize();
 
@@ -64,14 +61,14 @@ describe("Api", () => {
   it("should throw an initialization error when login fails", async () => {
     expect.assertions(1);
 
-    mockIndex(scope);
-    mockFailedLogin(scope);
+    mockIndex(mockAgent.get(`https://${TEST_HOST}`));
+    mockFailedLogin(mockAgent.get(`https://${TEST_HOST}`));
 
     await expect(api.initialize()).rejects.toThrow("Unable to get bootstrap details; failed fetching auth headers");
   });
 
   it("should find configured cameras", async () => {
-    mockSuccess(scope);
+    mockSuccess(mockAgent.get(`https://${TEST_HOST}`));
 
     await api.initialize();
 
@@ -79,7 +76,7 @@ describe("Api", () => {
   });
 
   it("should properly add a subscriber", async () => {
-    mockSuccess(scope);
+    mockSuccess(mockAgent.get(`https://${TEST_HOST}`));
 
     await api.initialize();
 
@@ -91,7 +88,7 @@ describe("Api", () => {
   });
 
   it("should properly clear subscribers", async () => {
-    mockSuccess(scope);
+    mockSuccess(mockAgent.get(`https://${TEST_HOST}`));
 
     await api.initialize();
 
@@ -103,7 +100,7 @@ describe("Api", () => {
   });
 
   it("should return false when downloading an unknown camera's video", async () => {
-    mockSuccess(scope);
+    mockSuccess(mockAgent.get(`https://${TEST_HOST}`));
 
     await api.initialize();
 
@@ -113,12 +110,12 @@ describe("Api", () => {
   it("should return true when downloading a known camera's video", async () => {
     expect.assertions(1);
 
-    mockSuccess(scope);
-    mockDownloadVideo(scope);
+    mockSuccess(mockAgent.get(`https://${TEST_HOST}`));
+    mockDownloadVideo(mockAgent.get(`https://${TEST_HOST}`));
 
     await api.initialize();
 
-    const mockWriteable = new Writable() as WriteStream;
+    const mockWriteable = new PassThrough() as unknown as WriteStream;
     fsMock.createWriteStream.mockReturnValueOnce(mockWriteable);
 
     // Start the download

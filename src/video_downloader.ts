@@ -1,5 +1,5 @@
-import axios from "axios";
 import { SequentialQueue } from "./sequential_queue";
+import { HttpError } from "./http_client";
 import { logger } from "./logger";
 import { DownloadError, MotionEndEvent } from "./types";
 import Api from "./api";
@@ -47,11 +47,9 @@ export default class VideoDownloader {
     try {
       await this.api.downloadVideo(event);
     } catch (error: unknown) {
-      const response = axios.isAxiosError(error) ? error.response : null;
-
       logger.warn("Download attempt failed for event: %s, retries: %s", event, retries);
-      if (response) {
-        logger.warn("Error details - status: %s, data: %s", response.status, response.data);
+      if (error instanceof HttpError) {
+        logger.warn("Error details - status: %s, data: %s", error.status, error.data);
       } else {
         logger.warn("Error details - %s", error);
       }

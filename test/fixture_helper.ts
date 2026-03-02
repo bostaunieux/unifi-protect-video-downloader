@@ -1,4 +1,4 @@
-import { Scope } from "nock";
+import { MockAgent, MockPool } from "undici";
 import { PassThrough } from "stream";
 import Api from "../src/api";
 
@@ -25,63 +25,51 @@ export const TEST_CAMERA_2 = {
   featureFlags: { hasSmartDetect: false },
 };
 
-export const mockIndex = (scope: Scope): Scope =>
-  scope.get("/").reply(200, "<html/>", {
-    "X-CSRF-Token": "test-token",
-  });
+export function createMockAgent(): MockAgent {
+  const agent = new MockAgent();
+  agent.disableNetConnect();
+  return agent;
+}
 
-export const mockLogin = (scope: Scope): Scope =>
-  scope
-    .post(
-      "/api/auth/login",
-      { username: USERNAME, password: PASSWORD, rememberMe: true, token: "" },
-      { reqheaders: { "X-CSRF-Token": AUTH_TOKEN } },
-    )
-    .reply(200, "", {
+export function mockIndex(pool: MockPool): void {
+  pool.intercept({ path: "/", method: "GET" }).reply(200, "<html/>", {
+    headers: { "X-CSRF-Token": AUTH_TOKEN },
+  });
+}
+
+export function mockLogin(pool: MockPool): void {
+  pool.intercept({ path: "/api/auth/login", method: "POST" }).reply(200, "", {
+    headers: {
       "X-CSRF-Token": AUTH_TOKEN,
       "Set-Cookie": AUTH_COOKIE,
+    },
+  });
+}
+
+export function mockFailedLogin(pool: MockPool): void {
+  pool.intercept({ path: "/api/auth/login", method: "POST" }).reply(401);
+}
+
+export function mockBootstrap(pool: MockPool): void {
+  pool
+    .intercept({ path: "/proxy/protect/api/bootstrap", method: "GET" })
+    .reply(200, JSON.stringify({ lastUpdateId: "abcdef", cameras: [TEST_CAMERA_1] }), {
+      headers: { "Content-Type": "application/json" },
     });
+}
 
-export const mockFailedLogin = (scope: Scope): Scope =>
-  scope
-    .post(
-      "/api/auth/login",
-      { username: USERNAME, password: PASSWORD, rememberMe: true, token: "" },
-      { reqheaders: { "X-CSRF-Token": AUTH_TOKEN } },
-    )
-    .reply(401);
+export function mockDownloadVideo(pool: MockPool): void {
+  pool.intercept({ path: /\/proxy\/protect\/api\/video\/export/, method: "GET" }).reply(200, () => {
+    const stream = new PassThrough();
+    stream.end();
+    return stream;
+  });
+}
 
-export const mockBootstrap = (scope: Scope): Scope =>
-  scope
-    .get("/proxy/protect/api/bootstrap", "", {
-      reqheaders: {
-        "Content-Type": "application/json",
-        Cookie: AUTH_COOKIE,
-        "X-CSRF-Token": AUTH_TOKEN,
-      },
-    })
-    .reply(200, {
-      lastUpdateId: "abcdef",
-      cameras: [TEST_CAMERA_1],
-    });
-
-export const mockDownloadVideo = (scope: Scope): Scope =>
-  scope
-    .get("/proxy/protect/api/video/export")
-    .query(true)
-    .reply(200, () => {
-      const stream = new PassThrough();
-      // End the stream immediately to simulate a successful download
-      stream.end();
-      return stream;
-    });
-
-export const mockSuccess = (scope: Scope): Scope => {
-  mockIndex(scope);
-  mockLogin(scope);
-  mockBootstrap(scope);
-
-  return scope;
-};
+export function mockSuccess(pool: MockPool): void {
+  mockIndex(pool);
+  mockLogin(pool);
+  mockBootstrap(pool);
+}
 
 export const stubApi = (): Api => new Api({ host: "", username: "", password: "", downloadPath: "" });

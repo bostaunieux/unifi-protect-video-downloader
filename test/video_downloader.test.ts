@@ -1,5 +1,5 @@
 import { TEST_CAMERA_1, stubApi } from "./fixture_helper";
-import VideoDownloader, { MAX_RETRIES, RETRY_INTERNAL_MS } from "../src/video_downloader";
+import VideoDownloader from "../src/video_downloader";
 import { DownloadError, MotionEndEvent } from "../src/types";
 import Api from "../src/api";
 

@@ -1,12 +1,11 @@
-import axios, { AxiosInstance } from "axios";
-import axiosRetry from "axios-retry";
-import https from "https";
+import { Dispatcher } from "undici";
 import { logger } from "./logger";
 import path from "path";
 import fs from "fs";
 import promises from "fs/promises";
 import EventStream from "./event_stream";
 import { CameraDetails, MotionEndEvent, Timestamp } from "./types";
+import { HttpClient } from "./http_client";
 
 interface ApiProps {
   /** Unifi NVR hostname */
@@ -17,6 +16,8 @@ interface ApiProps {
   password: string;
   /** Absolute path acting as the base path for video downloads */
   downloadPath: string;
+  /** Optional dispatcher for testing (e.g. undici MockAgent) */
+  dispatcher?: Dispatcher;
 }
 
 interface NvrData {
@@ -63,25 +64,22 @@ export default class Api {
   private username: string;
   private password: string;
   private downloadPath: string;
-  private request: AxiosInstance;
+  private httpClient: HttpClient;
   private headers?: Record<string, string>;
   private loginExpiry: Timestamp = 0;
   private bootstrap?: BootstrapResponse;
   private stream?: EventStream;
 
-  constructor({ host, username, password, downloadPath }: ApiProps) {
+  constructor({ host, username, password, downloadPath, dispatcher }: ApiProps) {
     this.host = host;
     this.username = username;
     this.password = password;
     this.downloadPath = downloadPath;
 
-    this.request = axios.create({
-      baseURL: `https://${this.host}`,
-      httpsAgent: new https.Agent({
-        rejectUnauthorized: false,
-      }),
+    this.httpClient = new HttpClient({
+      baseUrl: `https://${this.host}`,
+      dispatcher,
     });
-    axiosRetry(this.request, { retries: 5, retryDelay: axiosRetry.exponentialDelay });
   }
 
   /**
@@ -160,19 +158,19 @@ export default class Api {
       writeStream.on("error", reject);
     });
 
-    const downloadStream = await this.request.get("/proxy/protect/api/video/export", {
-      headers: this.headers,
-      responseType: "stream",
-      params: {
+    const downloadStream = await this.httpClient.getStream(
+      "/proxy/protect/api/video/export",
+      {
         start,
         end,
         camera: camera.id,
         filename: fileName,
         channel: 0,
       },
-    });
+      this.headers,
+    );
 
-    downloadStream.data.pipe(writeStream);
+    downloadStream.pipe(writeStream);
 
     return result;
   }
@@ -212,19 +210,17 @@ export default class Api {
 
     logger.info("Requesting new unifi controller authentication...");
 
-    // make an intial request to the unifi os entry page to "borrow" the csrf token it generates
-    let homepageResponse;
-    try {
-      homepageResponse = await this.request.get(`/`);
-    } catch (error: unknown) {
-      const message = axios.isAxiosError(error) ? error.message : "UNKNOWN CAUSE";
-      logger.warn("Homepage request failed, skipping: %s", message);
+    // make an initial request to the unifi os entry page to "borrow" the csrf token it generates
+    const homepageResponse = await this.httpClient.getOptional("/");
+    if (!homepageResponse) {
+      logger.warn("Homepage request failed, skipping");
     }
 
-    let authResponse;
+    const csrfToken = homepageResponse?.headers.get("x-csrf-token") ?? "";
 
+    let authResponse;
     try {
-      authResponse = await this.request.post(
+      authResponse = await this.httpClient.post(
         "/api/auth/login",
         {
           username: this.username,
@@ -232,22 +228,19 @@ export default class Api {
           rememberMe: true,
           token: "",
         },
-        {
-          headers: {
-            "X-CSRF-Token": homepageResponse?.headers["x-csrf-token"],
-          },
-        },
+        { "X-CSRF-Token": csrfToken },
       );
     } catch (error: unknown) {
-      const message = axios.isAxiosError(error) ? error.message : "UNKNOWN CAUSE";
+      const message = error instanceof Error ? error.message : "UNKNOWN CAUSE";
       logger.error("Login request failed: %s", message);
       return false;
     }
 
-    const csrfToken = authResponse.headers["x-csrf-token"];
-    const cookie = authResponse.headers["set-cookie"];
+    const authCsrfToken = authResponse.headers.get("x-csrf-token");
+    const cookies = authResponse.headers.getSetCookie?.() ?? [];
+    const cookie = cookies[0] ?? authResponse.headers.get("set-cookie") ?? "";
 
-    if (!csrfToken || !cookie?.[0]) {
+    if (!authCsrfToken || !cookie) {
       logger.log("Unable to fetch auth details");
       return false;
     }
@@ -256,8 +249,8 @@ export default class Api {
 
     this.headers = {
       "Content-Type": "application/json",
-      Cookie: cookie[0],
-      "X-CSRF-Token": csrfToken,
+      Cookie: cookie,
+      "X-CSRF-Token": authCsrfToken,
     };
 
     this.loginExpiry = now + REAUTHENTICATION_INTERVAL_MS;
@@ -270,17 +263,12 @@ export default class Api {
       throw new Error("Unable to get bootstrap details; failed fetching auth headers");
     }
 
-    const response = await this.request.get<BootstrapResponse>("/proxy/protect/api/bootstrap", {
-      headers: this.headers,
-    });
+    const response = await this.httpClient.get("/proxy/protect/api/bootstrap", this.headers);
 
-    if (response.status !== 200) {
-      throw new Error("Failed to fetch bootstrap");
-    }
+    const data = (await response.json()) as BootstrapResponse;
+    this.bootstrap = data;
 
-    this.bootstrap = response.data;
-
-    return response.data;
+    return data;
   }
 
   private generateFileAttributes(cameraName: string, timestamp: number): FileAttributes {
