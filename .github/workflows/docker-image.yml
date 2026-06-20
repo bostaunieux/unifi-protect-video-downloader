@@ -8,9 +8,6 @@ jobs:
   main:
     runs-on: ubuntu-latest
     steps:
-      - 
-        name: Set env
-        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
       -
         name: Checkout
         uses: actions/checkout@v4
@@ -28,6 +25,18 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.CR_PAT }}
       -
+        name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/unifi-protect-video-downloader
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+          flavor: |
+            latest=auto
+      -
         name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -35,6 +44,5 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/unifi-protect-video-downloader:latest
-            ghcr.io/${{ github.repository_owner }}/unifi-protect-video-downloader:${{ env.RELEASE_VERSION }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
