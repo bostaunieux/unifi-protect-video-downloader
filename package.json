@@ -18,7 +18,7 @@
     "test:coverage": "jest --coverage"
   },
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=24.18.0"
   },
   "dependencies": {
     "dotenv": "^17.2.2",
