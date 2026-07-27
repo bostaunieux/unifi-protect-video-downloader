@@ -1,35 +1,33 @@
-import { defineConfig } from "eslint/config";
 import globals from "globals";
 import tsParser from "@typescript-eslint/parser";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import js from "@eslint/js";
-import { FlatCompat } from "@eslint/eslintrc";
+import tsPlugin from "@typescript-eslint/eslint-plugin";
+import prettierRecommended from "eslint-plugin-prettier/recommended";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const compat = new FlatCompat({
-    baseDirectory: __dirname,
-    recommendedConfig: js.configs.recommended,
-    allConfig: js.configs.all
-});
-
-export default defineConfig([{
-    extends: compat.extends("plugin:@typescript-eslint/recommended", "plugin:prettier/recommended"),
-
-    languageOptions: {
-        globals: {
-            ...globals.node,
+export default [
+    {
+        files: ["**/*.ts"],
+        plugins: {
+            "@typescript-eslint": tsPlugin,
         },
-
-        parser: tsParser,
-        ecmaVersion: 2018,
-        sourceType: "module",
+        languageOptions: {
+            globals: {
+                ...globals.node,
+            },
+            parser: tsParser,
+            ecmaVersion: 2018,
+            sourceType: "module",
+        },
+        rules: {
+            ...tsPlugin.configs.recommended.rules,
+        },
     },
-
-    rules: {
-        "prettier/prettier": ["error"],
-        "no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }],
-        "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }]
+    prettierRecommended,
+    {
+        files: ["**/*.ts"],
+        rules: {
+            "prettier/prettier": ["error"],
+            "no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }],
+            "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }],
+        },
     },
-}]);
+];
