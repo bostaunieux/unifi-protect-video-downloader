@@ -18,17 +18,16 @@
     "test:coverage": "jest --coverage"
   },
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=24.18.0"
   },
   "dependencies": {
     "dotenv": "^17.2.2",
     "mqtt": "^5.11.0",
-    "undici": "^7.28.0",
+    "undici": "^8.9.0",
     "unifi-protect": "^3.0.4",
     "ws": "^8.21.0"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.3.1",
     "@eslint/js": "^10.0.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.3.3",
@@ -43,5 +42,10 @@
     "prettier": "^3.5.3",
     "ts-jest": "^29.1.1",
     "typescript": "^5.9.2"
+  },
+  "overrides": {
+    "babel-plugin-istanbul": "^8.0.2",
+    "brace-expansion": "^5.0.8",
+    "minimatch": "^10.2.5"
   }
 }
